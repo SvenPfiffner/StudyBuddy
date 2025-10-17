@@ -45,22 +45,51 @@ class StudyBuddyService:
     def generate_practice_exam(self, script_content: str) -> List[ExamQuestion]:
         prompt = (
             "You are preparing a multiple choice practice exam. Based on the study material below, create at least five questions. "
-            "Return a JSON array where every object has the keys 'question', 'options' (exactly four), and 'correctAnswer' which must match one of the options.\n\n"
+            "Return a JSON array where every object has the keys 'question', 'options' (exactly four), and 'correctAnswer' which must be EXACTLY one of the options - copy it verbatim.\n\n"
             "Study material:\n" + script_content + "\n\nReturn only valid JSON."
         )
         result = self._safe_generate(prompt, max_new_tokens=1024)
         questions = self._parse_json_array(result.text, ExamQuestion)
-        for question in questions:
+        for idx, question in enumerate(questions):
             if len(question.options) != 4:
+                logger.error(
+                    "Question %d has %d options instead of 4: %s", 
+                    idx, len(question.options), question.options
+                )
                 raise HTTPException(
                     status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail="Generated exam question does not have exactly four options.",
+                    detail=f"Generated exam question {idx+1} does not have exactly four options (has {len(question.options)}).",
                 )
+            
+            # Check if correctAnswer matches any option exactly
             if question.correctAnswer not in question.options:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail="Generated exam question has a correctAnswer that is not one of the options.",
-                )
+                # Try to find a fuzzy match (case-insensitive and contains check)
+                matched_option = None
+                correct_lower = question.correctAnswer.lower()
+                
+                # First try: find option that contains the correct answer or vice versa
+                for option in question.options:
+                    option_lower = option.lower()
+                    if correct_lower in option_lower or option_lower in correct_lower:
+                        matched_option = option
+                        break
+                
+                if matched_option:
+                    logger.warning(
+                        "Question %d: Fuzzy matched correctAnswer '%s' to option '%s'",
+                        idx, question.correctAnswer, matched_option
+                    )
+                    # Fix the question by setting correctAnswer to the matched option
+                    question.correctAnswer = matched_option
+                else:
+                    logger.error(
+                        "Question %d correctAnswer '%s' not in options: %s",
+                        idx, question.correctAnswer, question.options
+                    )
+                    raise HTTPException(
+                        status_code=status.HTTP_502_BAD_GATEWAY,
+                        detail=f"Generated exam question {idx+1} has a correctAnswer that is not one of the options.",
+                    )
         return questions
 
     # ------------------------------------------------------------------

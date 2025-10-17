@@ -50,6 +50,7 @@ async def flashcards(
     service: StudyBuddyService = Depends(get_service),
 ):
     items = await run_in_threadpool(service.generate_flashcards, payload.scriptContent)
+    print("FLASHCARDS GENERATED:", items)
     return items
 
 
@@ -59,6 +60,8 @@ async def practice_exam(
     service: StudyBuddyService = Depends(get_service),
 ):
     questions = await run_in_threadpool(service.generate_practice_exam, payload.scriptContent)
+
+    print("PRACTICE EXAM QUESTIONS GENERATED:", questions)
     return questions
 
 
@@ -68,6 +71,8 @@ async def summary_with_images(
     service: StudyBuddyService = Depends(get_service),
 ):
     summary = await run_in_threadpool(service.generate_summary_with_images, payload.scriptContent)
+
+    print("SUMMARY WITH IMAGES GENERATED:", summary)
     return SummaryResponse(summary=summary)
 
 
@@ -91,6 +96,8 @@ async def generate_image(
     service: StudyBuddyService = Depends(get_service),
 ):
     image_b64 = await run_in_threadpool(service.generate_image, payload.prompt)
+
+    print("IMAGE GENERATED:", image_b64)
     return ImageResponse(image=image_b64)
 
 
