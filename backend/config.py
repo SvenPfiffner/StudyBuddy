@@ -1,0 +1,39 @@
+from functools import lru_cache
+from pydantic import BaseSettings, Field
+
+
+class Settings(BaseSettings):
+    """Runtime configuration for the StudyBuddy backend."""
+
+    text_model_id: str = Field(
+        default="mistralai/Mistral-7B-Instruct-v0.2",
+        description="Hugging Face model id used for text generation.",
+    )
+    image_model_id: str = Field(
+        default="stabilityai/stable-diffusion-2-1-base",
+        description="Diffusers checkpoint id used for image generation.",
+    )
+    max_new_tokens: int = Field(
+        default=512,
+        description="Maximum number of tokens to generate for a single request.",
+    )
+    temperature: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=2.0,
+        description="Sampling temperature applied to the LLM.",
+    )
+    enable_image_generation: bool = Field(
+        default=True,
+        description="Disable to skip image creation while still returning a textual summary.",
+    )
+
+    class Config:
+        env_prefix = "STUDYBUDDY_"
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()  # type: ignore[call-arg]
