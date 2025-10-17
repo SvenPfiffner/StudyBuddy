@@ -174,14 +174,29 @@ class StudyBuddyService:
     @staticmethod
     def _extract_json(text: str) -> str:
         text = text.strip()
-        if text.startswith("```"):
+        
+        # Look for code fences anywhere in the text, not just at the start
+        fence_start = text.find("```")
+        if fence_start != -1:
             # Find the end of the opening fence (could be ```json or just ```)
-            first_newline = text.find("\n")
+            first_newline = text.find("\n", fence_start)
             if first_newline != -1:
                 # Find the closing fence
                 fence_end = text.find("```", first_newline)
                 if fence_end != -1:
                     return text[first_newline + 1:fence_end].strip()
+        
+        # If no code fence found, try to find JSON array or object
+        # Look for opening [ or {
+        json_start = -1
+        for char in ['[', '{']:
+            idx = text.find(char)
+            if idx != -1 and (json_start == -1 or idx < json_start):
+                json_start = idx
+        
+        if json_start != -1:
+            return text[json_start:].strip()
+        
         return text
 
     @staticmethod
