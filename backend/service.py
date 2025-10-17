@@ -103,39 +103,9 @@ class StudyBuddyService:
         )
         result = self._safe_generate(prompt, max_new_tokens=1024)
         markdown = result.text
-
-        prompts = IMAGE_PROMPT_REGEX.findall(markdown)
-        if not prompts:
-            return markdown
-
-        if not self.settings.enable_image_generation:
-            def _disabled(_: re.Match[str]) -> str:
-                return (
-                    "\n\n<div class=\"my-6 p-4 bg-gray-700/50 border border-blue-500/50 rounded-lg text-center text-blue-200\">"
-                    f"<em>Image prompt: {_.group(1).strip()} (image generation disabled)</em></div>\n\n"
-                )
-
-            return IMAGE_PROMPT_REGEX.sub(_disabled, markdown)
-
-        replacements: List[str] = []
-        for prompt_text in prompts:
-            try:
-                image_b64 = self._image_client.generate(prompt_text)
-                replacements.append(
-                    f'\n\n<img src="data:image/jpeg;base64,{image_b64}" alt="{prompt_text}" class="my-6 rounded-lg shadow-lg w-full" />\n\n'
-                )
-            except Exception as exc:  # pragma: no cover - hardware dependent
-                logger.exception("Failed to generate image for prompt '%s'", prompt_text)
-                replacements.append(
-                    "\n\n<div class=\"my-6 p-4 bg-gray-700/50 border border-red-500/50 rounded-lg text-center text-red-400\"><em>"
-                    + f"Image generation failed for prompt: {prompt_text}."
-                    + "</em></div>\n\n"
-                )
-
-        def _replacement(_: re.Match[str]) -> str:
-            return replacements.pop(0) if replacements else ""
-
-        return IMAGE_PROMPT_REGEX.sub(_replacement, markdown)
+        
+        # Just return the markdown with placeholders - let the frontend generate images
+        return markdown
 
     # ------------------------------------------------------------------
     # Image Generation

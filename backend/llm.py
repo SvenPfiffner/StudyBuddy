@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import torch
-from diffusers import StableDiffusionPipeline
+from diffusers import AutoPipelineForText2Image
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
 from .config import Settings, get_settings
@@ -27,11 +27,30 @@ class TextGenerationClient:
     def __init__(self, settings: Optional[Settings] = None) -> None:
         self.settings = settings or get_settings()
         self._tokenizer = AutoTokenizer.from_pretrained(self.settings.text_model_id)
-        self._model = AutoModelForCausalLM.from_pretrained(
-            self.settings.text_model_id,
-            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-            device_map="auto",
-        )
+        
+        # Use 4-bit quantization to reduce VRAM usage
+        # This reduces memory by ~75% with minimal quality loss
+        if torch.cuda.is_available():
+            from transformers import BitsAndBytesConfig
+            quantization_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_compute_dtype=torch.float16,
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_quant_type="nf4"
+            )
+            self._model = AutoModelForCausalLM.from_pretrained(
+                self.settings.text_model_id,
+                quantization_config=quantization_config,
+                device_map="auto",
+            )
+        else:
+            # CPU fallback - no quantization
+            self._model = AutoModelForCausalLM.from_pretrained(
+                self.settings.text_model_id,
+                torch_dtype=torch.float32,
+                device_map="auto",
+            )
+        
         self._pipeline = pipeline(
             "text-generation",
             model=self._model,
@@ -68,14 +87,21 @@ class ImageGenerationClient:
         self.settings = settings or get_settings()
         if not self.settings.enable_image_generation:
             self._pipeline = None
+            self._is_turbo = False
             return
 
+        # Detect if this is a turbo model for optimized generation
+        self._is_turbo = "turbo" in self.settings.image_model_id.lower()
+        
         torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-        self._pipeline = StableDiffusionPipeline.from_pretrained(
+        
+        # Use AutoPipeline which automatically selects the right pipeline type
+        self._pipeline = AutoPipelineForText2Image.from_pretrained(
             self.settings.image_model_id,
             torch_dtype=torch_dtype,
             safety_checker=None,
         )
+        
         if torch.cuda.is_available():
             self._pipeline.to("cuda")
         else:
@@ -85,11 +111,22 @@ class ImageGenerationClient:
         if not self.settings.enable_image_generation or self._pipeline is None:
             raise RuntimeError("Image generation is disabled in the current configuration.")
 
-        if torch.cuda.is_available():
-            with torch.autocast("cuda"):
-                image = self._pipeline(prompt).images[0]
+        # Generate image with proper parameters based on model type
+        if self._is_turbo:
+            # SDXL-Turbo: optimized for speed with 1-4 steps, no guidance
+            image = self._pipeline(
+                prompt=prompt,
+                num_inference_steps=4,
+                guidance_scale=0.0,
+            ).images[0]
         else:
-            image = self._pipeline(prompt).images[0]
+            # Standard models: use more steps and guidance
+            image = self._pipeline(
+                prompt=prompt,
+                num_inference_steps=20,
+                guidance_scale=7.5,
+            ).images[0]
+        
         buffer = io.BytesIO()
         image.save(buffer, format="JPEG", quality=90)
         encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")

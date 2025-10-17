@@ -1,5 +1,7 @@
 # StudyBuddy AI 🎓✨
 
+
+
 **StudyBuddy** is your personal AI-powered study companion that transforms your lecture notes and study materials into interactive learning tools! 📚 Whether you need flashcards for quick revision, practice exams to test your knowledge, or visual summaries with AI-generated diagrams, StudyBuddy has you covered. Built with a self-hosted backend running state-of-the-art open-source models (Llama, Mistral, Stable Diffusion), it keeps your data private while delivering powerful AI capabilities. Plus, you can chat with an AI tutor that understands your study materials! 🤖💡
 
 ## Use Cases
