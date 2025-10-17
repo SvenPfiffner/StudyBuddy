@@ -97,45 +97,76 @@ class StudyBuddyService:
     # ------------------------------------------------------------------
     def generate_summary_with_images(self, script_content: str) -> str:
         prompt = (
-            "You are a professional educational content creator. Create a clear, structured Markdown summary of the study material below.\n\n"
-            "FORMATTING RULES:\n"
-            "- Use headings (##, ###) to organize topics\n"
-            "- Use bullet points for lists and key concepts\n"
-            "- Write concisely but comprehensively\n"
-            "- DO NOT add any meta-commentary, instructions, or notes to the reader\n"
-            "- DO NOT write things like 'Please note', 'Remember to', or 'The images should'\n\n"
-            "IMAGE PLACEMENT RULES:\n"
-            "- Insert [IMAGE_PROMPT: detailed description] ONLY where a visual would genuinely help understanding\n"
-            "- Place images AFTER the relevant paragraph or section, never at the beginning\n"
-            "- Limit to 2-3 images maximum\n"
-            "- Image prompts should describe concrete, specific visuals (diagrams, charts, illustrations)\n"
-            "- Example: [IMAGE_PROMPT: A labeled diagram showing the structure of a neuron with dendrites, axon, and synapses]\n\n"
+            "Create an educational summary with EXACTLY 3 image placeholders.\n\n"
+            "MANDATORY FORMAT:\n"
+            "## Introduction\n"
+            "[content]\n\n"
+            "[IMAGE_PROMPT: detailed description]\n\n"
+            "## Main Section\n"
+            "[content]\n\n"
+            "[IMAGE_PROMPT: detailed description]\n\n"
+            "## Conclusion\n"
+            "[content]\n\n"
+            "[IMAGE_PROMPT: detailed description]\n\n"
+            "CRITICAL RULES:\n"
+            "- You MUST include EXACTLY 3 lines starting with [IMAGE_PROMPT:\n"
+            "- Each [IMAGE_PROMPT: must describe a diagram, chart, or illustration\n"
+            "- NO dialogue (Human:, Assistant:, Revised)\n"
+            "- NO incomplete sentences\n"
+            "- Keep summary 400-600 words\n\n"
             "Study material:\n" + script_content + "\n\n"
-            "Generate the summary now:"
+            "Summary with 3 image placeholders:"
         )
-        result = self._safe_generate(prompt, max_new_tokens=1024)
+        result = self._safe_generate(prompt, max_new_tokens=768)
         markdown = result.text
         
-        # Clean up any meta-commentary that slipped through
-        # Remove common hallucinated phrases
-        cleanup_patterns = [
-            r"---\s*Human:.*$",
-            r"---\s*Please note.*$",
-            r"---\s*Remember.*$",
-            r"Please note that.*image.*placeholder.*",
-            r"Remember to.*image.*",
-            r"Note:.*image.*should.*",
-            r"\*\*Note:.*image.*",
+        # Aggressive cleanup of hallucinations
+        import re
+        
+        # Remove everything after common hallucination patterns
+        stop_patterns = [
+            r'---+\s*Human:',
+            r'---+\s*Revised',
+            r'---+\s*\*\*Revised',
+            r'Human:\s*',
+            r'Assistant:\s*',
+            r'Revised\s+Introduction',
+            r'Can you rephrase',
         ]
         
-        import re
-        for pattern in cleanup_patterns:
-            markdown = re.sub(pattern, "", markdown, flags=re.IGNORECASE | re.MULTILINE | re.DOTALL)
+        for pattern in stop_patterns:
+            match = re.search(pattern, markdown, re.IGNORECASE)
+            if match:
+                markdown = markdown[:match.start()]
+                break
         
-        # Remove trailing whitespace and multiple blank lines
+        # Remove trailing incomplete sentences
+        markdown = markdown.strip()
+        if markdown and not markdown[-1] in '.!?)':
+            # Find last complete sentence
+            last_period = max(
+                markdown.rfind('. '),
+                markdown.rfind('.\n'),
+                markdown.rfind('!\n'),
+                markdown.rfind('?\n')
+            )
+            if last_period > 0:
+                markdown = markdown[:last_period + 1]
+        
+        # Remove meta-commentary
+        cleanup_patterns = [
+            r'Please note.*?(?:\.|$)',
+            r'Remember.*?(?:\.|$)',
+            r'Note:.*?(?:\.|$)',
+            r'\*\*Note:.*?(?:\.|$)',
+        ]
+        
+        for pattern in cleanup_patterns:
+            markdown = re.sub(pattern, "", markdown, flags=re.IGNORECASE)
+        
+        # Clean up whitespace
         markdown = re.sub(r'\n{3,}', '\n\n', markdown.strip())
         
-        # Just return the markdown with placeholders - let the frontend generate images
         return markdown
 
     # ------------------------------------------------------------------
