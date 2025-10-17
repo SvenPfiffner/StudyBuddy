@@ -1,76 +1,25 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import type { Flashcard, ExamQuestion, ChatMessage } from '../types';
 
-if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable not set");
-}
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-const flashcardSchema = {
-  type: Type.ARRAY,
-  items: {
-    type: Type.OBJECT,
-    properties: {
-      question: {
-        type: Type.STRING,
-        description: 'The question or term for the front of the flashcard.'
-      },
-      answer: {
-        type: Type.STRING,
-        description: 'The answer or definition for the back of the flashcard.'
-      }
-    },
-    required: ['question', 'answer']
-  }
-};
-
-const examSchema = {
-    type: Type.ARRAY,
-    items: {
-      type: Type.OBJECT,
-      properties: {
-        question: {
-          type: Type.STRING,
-          description: 'The multiple-choice question.'
-        },
-        options: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.STRING,
-          },
-          description: 'An array of 4 possible answers.'
-        },
-        correctAnswer: {
-            type: Type.STRING,
-            description: 'The correct answer, which must be one of the provided options.'
-        }
-      },
-      required: ['question', 'options', 'correctAnswer']
-    }
-  };
+// Backend API base URL - change this to your deployed backend URL
+const API_BASE_URL = 'http://localhost:8000';
 
 
 export const generateFlashcards = async (scriptContent: string): Promise<Flashcard[]> => {
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `Based on the following script, generate a comprehensive set of flashcards. Each flashcard should have a 'question' and an 'answer'. The questions should cover the key concepts, definitions, and important facts in the text.
-
-            Script:
-            ---
-            ${scriptContent}
-            ---
-            
-            Please provide the output in the specified JSON format.`,
-            config: {
-                responseMimeType: 'application/json',
-                responseSchema: flashcardSchema,
-            }
+        const response = await fetch(`${API_BASE_URL}/flashcards`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ scriptContent }),
         });
 
-        const jsonString = response.text.trim();
-        const flashcards = JSON.parse(jsonString);
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to generate flashcards');
+        }
+
+        const flashcards = await response.json();
         return flashcards as Flashcard[];
 
     } catch (error) {
@@ -81,24 +30,20 @@ export const generateFlashcards = async (scriptContent: string): Promise<Flashca
 
 export const generatePracticeExam = async (scriptContent: string): Promise<ExamQuestion[]> => {
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `Based on the following script, generate a multiple-choice practice exam with at least 5 questions. Each question should have a 'question', an array of 4 'options', and the 'correctAnswer' which must be one of the provided options. The questions should test the understanding of the material.
-
-            Script:
-            ---
-            ${scriptContent}
-            ---
-            
-            Please provide the output in the specified JSON format.`,
-             config: {
-                responseMimeType: 'application/json',
-                responseSchema: examSchema,
-            }
+        const response = await fetch(`${API_BASE_URL}/practice-exam`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ scriptContent }),
         });
 
-        const jsonString = response.text.trim();
-        const examQuestions = JSON.parse(jsonString);
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to generate practice exam');
+        }
+
+        const examQuestions = await response.json();
         return examQuestions as ExamQuestion[];
     } catch (error) {
         console.error("Error generating practice exam:", error);
@@ -108,20 +53,21 @@ export const generatePracticeExam = async (scriptContent: string): Promise<ExamQ
 
 const generateImage = async (prompt: string): Promise<string> => {
     try {
-        const response = await ai.models.generateImages({
-            model: 'imagen-4.0-generate-001',
-            prompt: prompt,
-            config: {
-              numberOfImages: 1,
-              outputMimeType: 'image/jpeg',
-              aspectRatio: '16:9',
+        const response = await fetch(`${API_BASE_URL}/generate-image`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
             },
+            body: JSON.stringify({ prompt }),
         });
 
-        if (response.generatedImages && response.generatedImages.length > 0) {
-            return response.generatedImages[0].image.imageBytes;
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to generate image');
         }
-        throw new Error("No image was generated.");
+
+        const data = await response.json();
+        return data.image; // base64 encoded image
 
     } catch (error) {
         console.error(`Error generating image for prompt "${prompt}":`, error);
@@ -132,28 +78,26 @@ const generateImage = async (prompt: string): Promise<string> => {
 export const generateSummary = async (scriptContent: string, onProgress: (message: string) => void): Promise<string> => {
     try {
         onProgress("Consulting the muses for a summary...");
-        // Step 1: Generate Markdown Summary with Image Placeholders
-        const summaryResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
-            contents: `Your task is to create a comprehensive, well-structured summary of the provided text. The summary must be in Markdown format.
-While summarizing, identify up to 3 key concepts that would be significantly clarified by a visual aid.
-For each of these concepts, you must insert a placeholder at the most relevant point in the text.
-The placeholder MUST be in the exact format: \`[IMAGE_PROMPT: Your descriptive and concise image prompt here]\`.
-
-Example:
-...This led to the development of the photosynthesis process.
-[IMAGE_PROMPT: A detailed diagram of the photosynthesis process in a plant cell, showing chloroplasts, light, water, and CO2.]
-Photosynthesis allows plants to convert...
-
-Now, process the following text:
----
-${scriptContent}
----`,
+        
+        // Step 1: Generate Markdown Summary with Image Placeholders from backend
+        const summaryResponse = await fetch(`${API_BASE_URL}/summary-with-images`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ scriptContent }),
         });
 
-        let markdownSummary = summaryResponse.text;
+        if (!summaryResponse.ok) {
+            const error = await summaryResponse.json();
+            throw new Error(error.detail || 'Failed to generate summary');
+        }
+
+        const data = await summaryResponse.json();
+        let markdownSummary = data.summary;
 
         onProgress("Ideating some artistic masterpieces...");
+        
         // Step 2: Parse Placeholders
         const imagePromptRegex = /\[IMAGE_PROMPT:\s*(.*?)\]/g;
         const prompts = [...markdownSummary.matchAll(imagePromptRegex)].map(match => match[1].trim());
@@ -164,11 +108,13 @@ ${scriptContent}
         }
 
         onProgress(`Warming up the digital easel for ${prompts.length} image(s)...`);
+        
         // Step 3: Generate Images using Promise.allSettled for resilience
         const imagePromises = prompts.map(prompt => generateImage(prompt));
         const imageResults = await Promise.allSettled(imagePromises);
 
         onProgress("Adding the finishing touches to the gallery...");
+        
         // Step 4: Replace Placeholders with Markdown Images or error messages
         let imageIndex = 0;
         markdownSummary = markdownSummary.replace(imagePromptRegex, () => {
@@ -199,15 +145,25 @@ ${scriptContent}
 
 export const continueChat = async (history: ChatMessage[], systemInstruction: string, newMessage: string): Promise<string> => {
     try {
-        const chat = ai.chats.create({
-            model: 'gemini-2.5-flash',
-            history: history,
-            config: {
-                systemInstruction: systemInstruction,
+        const response = await fetch(`${API_BASE_URL}/chat`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
             },
+            body: JSON.stringify({
+                history,
+                systemInstruction,
+                message: newMessage,
+            }),
         });
-        const response = await chat.sendMessage({ message: newMessage });
-        return response.text;
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to get chat response');
+        }
+
+        const data = await response.json();
+        return data.message;
     } catch (error) {
         console.error("Error continuing chat:", error);
         throw new Error("Failed to get a response from the AI. Please try again.");

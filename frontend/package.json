@@ -11,7 +11,6 @@
   "dependencies": {
     "react-dom": "^19.2.0",
     "react": "^19.2.0",
-    "@google/genai": "^1.25.0",
     "react-markdown": "9",
     "remark-gfm": "4",
     "rehype-raw": "7"
