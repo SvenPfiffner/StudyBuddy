@@ -7,11 +7,11 @@ class Settings(BaseSettings):
     """Runtime configuration for the StudyBuddy backend."""
 
     text_model_id: str = Field(
-        default="mistralai/Mistral-7B-Instruct-v0.2",
+        default="Qwen/Qwen2.5-7B-Instruct",
         description="Hugging Face model id used for text generation.",
     )
     image_model_id: str = Field(
-        default="stabilityai/stable-diffusion-2-1-base",
+        default="stabilityai/sdxl-turbo",
         description="Diffusers checkpoint id used for image generation.",
     )
     max_new_tokens: int = Field(
