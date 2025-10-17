@@ -1,0 +1,5 @@
+{
+  "name": "Study Buddy AI",
+  "description": "An application that automatically generates flashcards and practice exams from uploaded scripts or notes using the Gemini API.",
+  "requestFramePermissions": []
+}
