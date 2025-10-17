@@ -48,7 +48,7 @@ async def flashcards(
     service: StudyBuddyService = Depends(get_service),
 ):
     items = await run_in_threadpool(service.generate_flashcards, payload.scriptContent)
-    return FlashcardResponse(__root__=items)
+    return items
 
 
 @app.post("/practice-exam", response_model=ExamResponse)
@@ -57,7 +57,7 @@ async def practice_exam(
     service: StudyBuddyService = Depends(get_service),
 ):
     questions = await run_in_threadpool(service.generate_practice_exam, payload.scriptContent)
-    return ExamResponse(__root__=questions)
+    return questions
 
 
 @app.post("/summary-with-images", response_model=SummaryResponse)

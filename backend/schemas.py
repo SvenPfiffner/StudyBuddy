@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, RootModel
 
 
 class Flashcard(BaseModel):
@@ -22,12 +22,14 @@ class ScriptRequest(BaseModel):
     scriptContent: str = Field(..., description="Concatenated project files")
 
 
-class FlashcardResponse(BaseModel):
-    __root__: List[Flashcard]
+# ---- RootModel wrappers (v2 way to do `__root__`) ----
+class FlashcardResponse(RootModel[List[Flashcard]]):
+    pass
 
 
-class ExamResponse(BaseModel):
-    __root__: List[ExamQuestion]
+class ExamResponse(RootModel[List[ExamQuestion]]):
+    pass
+# ------------------------------------------------------
 
 
 class SummaryResponse(BaseModel):

@@ -1,5 +1,6 @@
 from functools import lru_cache
-from pydantic import BaseSettings, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -28,10 +29,12 @@ class Settings(BaseSettings):
         description="Disable to skip image creation while still returning a textual summary.",
     )
 
-    class Config:
-        env_prefix = "STUDYBUDDY_"
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    # ✅ Pydantic v2 replacement for class Config
+    model_config = SettingsConfigDict(
+        env_prefix="STUDYBUDDY_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+    )
 
 
 @lru_cache

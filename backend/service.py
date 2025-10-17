@@ -156,9 +156,13 @@ class StudyBuddyService:
     def _extract_json(text: str) -> str:
         text = text.strip()
         if text.startswith("```"):
-            fence_end = text.find("```", 3)
-            if fence_end != -1:
-                return text[3:fence_end].strip()
+            # Find the end of the opening fence (could be ```json or just ```)
+            first_newline = text.find("\n")
+            if first_newline != -1:
+                # Find the closing fence
+                fence_end = text.find("```", first_newline)
+                if fence_end != -1:
+                    return text[first_newline + 1:fence_end].strip()
         return text
 
     @staticmethod
