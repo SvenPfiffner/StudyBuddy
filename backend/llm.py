@@ -102,6 +102,14 @@ class ImageGenerationClient:
             safety_checker=None,
         )
         
+        # SDXL-Turbo requires a specific scheduler for 1-4 step generation
+        if self._is_turbo:
+            from diffusers import EulerAncestralDiscreteScheduler
+            self._pipeline.scheduler = EulerAncestralDiscreteScheduler.from_config(
+                self._pipeline.scheduler.config,
+                timestep_spacing="trailing"
+            )
+        
         if torch.cuda.is_available():
             self._pipeline.to("cuda")
         else:
@@ -116,7 +124,7 @@ class ImageGenerationClient:
             # SDXL-Turbo: optimized for speed with 1-4 steps, no guidance
             image = self._pipeline(
                 prompt=prompt,
-                num_inference_steps=4,
+                num_inference_steps=1,
                 guidance_scale=0.0,
             ).images[0]
         else:

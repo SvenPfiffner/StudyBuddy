@@ -97,12 +97,43 @@ class StudyBuddyService:
     # ------------------------------------------------------------------
     def generate_summary_with_images(self, script_content: str) -> str:
         prompt = (
-            "Create a structured Markdown summary of the study material below. Write in concise sections with headings and bullet points when useful. "
-            "When a visual aid would help, insert a placeholder exactly in the form [IMAGE_PROMPT: description of the scene]. Limit to at most 3 images.\n\n"
-            "Study material:\n" + script_content + "\n\nReturn only the Markdown summary."
+            "You are a professional educational content creator. Create a clear, structured Markdown summary of the study material below.\n\n"
+            "FORMATTING RULES:\n"
+            "- Use headings (##, ###) to organize topics\n"
+            "- Use bullet points for lists and key concepts\n"
+            "- Write concisely but comprehensively\n"
+            "- DO NOT add any meta-commentary, instructions, or notes to the reader\n"
+            "- DO NOT write things like 'Please note', 'Remember to', or 'The images should'\n\n"
+            "IMAGE PLACEMENT RULES:\n"
+            "- Insert [IMAGE_PROMPT: detailed description] ONLY where a visual would genuinely help understanding\n"
+            "- Place images AFTER the relevant paragraph or section, never at the beginning\n"
+            "- Limit to 2-3 images maximum\n"
+            "- Image prompts should describe concrete, specific visuals (diagrams, charts, illustrations)\n"
+            "- Example: [IMAGE_PROMPT: A labeled diagram showing the structure of a neuron with dendrites, axon, and synapses]\n\n"
+            "Study material:\n" + script_content + "\n\n"
+            "Generate the summary now:"
         )
         result = self._safe_generate(prompt, max_new_tokens=1024)
         markdown = result.text
+        
+        # Clean up any meta-commentary that slipped through
+        # Remove common hallucinated phrases
+        cleanup_patterns = [
+            r"---\s*Human:.*$",
+            r"---\s*Please note.*$",
+            r"---\s*Remember.*$",
+            r"Please note that.*image.*placeholder.*",
+            r"Remember to.*image.*",
+            r"Note:.*image.*should.*",
+            r"\*\*Note:.*image.*",
+        ]
+        
+        import re
+        for pattern in cleanup_patterns:
+            markdown = re.sub(pattern, "", markdown, flags=re.IGNORECASE | re.MULTILINE | re.DOTALL)
+        
+        # Remove trailing whitespace and multiple blank lines
+        markdown = re.sub(r'\n{3,}', '\n\n', markdown.strip())
         
         # Just return the markdown with placeholders - let the frontend generate images
         return markdown
@@ -133,11 +164,30 @@ class StudyBuddyService:
         conversation = self._render_history(history)
         prompt = (
             f"{system_instruction.strip()}\n\n"
-            "The following is a conversation between a helpful study assistant and a user. Respond with clear, actionable explanations.\n"
-            f"Conversation so far:\n{conversation}\nUser: {message}\nAssistant:"
+            "You are a focused study assistant. Provide clear, concise, and helpful explanations.\n"
+            "Rules:\n"
+            "- Answer the question directly without meta-commentary\n"
+            "- Be educational and accurate\n"
+            "- Use examples when helpful\n"
+            "- Keep responses concise (2-4 paragraphs max)\n"
+            "- DO NOT add notes like 'Please note', 'Remember', or instructions to the user\n\n"
+            f"Conversation:\n{conversation}\nUser: {message}\nAssistant:"
         )
         result = self._safe_generate(prompt, max_new_tokens=512)
-        return result.text
+        response = result.text
+        
+        # Clean up any meta-commentary
+        cleanup_patterns = [
+            r"---\s*Human:.*$",
+            r"---\s*Please.*$",
+            r"---\s*Remember.*$",
+            r"---\s*Note:.*$",
+        ]
+        
+        for pattern in cleanup_patterns:
+            response = re.sub(pattern, "", response, flags=re.IGNORECASE | re.MULTILINE | re.DOTALL)
+        
+        return response.strip()
 
     # ------------------------------------------------------------------
     # Helpers
