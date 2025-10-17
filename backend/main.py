@@ -14,6 +14,8 @@ from .schemas import (
     ChatResponse,
     ExamResponse,
     FlashcardResponse,
+    ImageRequest,
+    ImageResponse,
     ScriptRequest,
     SummaryResponse,
 )
@@ -81,6 +83,15 @@ async def chat(
     except HTTPException:
         raise
     return ChatResponse(message=reply)
+
+
+@app.post("/generate-image", response_model=ImageResponse)
+async def generate_image(
+    payload: ImageRequest,
+    service: StudyBuddyService = Depends(get_service),
+):
+    image_b64 = await run_in_threadpool(service.generate_image, payload.prompt)
+    return ImageResponse(image=image_b64)
 
 
 __all__ = ["app"]

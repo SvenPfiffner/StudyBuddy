@@ -109,6 +109,25 @@ class StudyBuddyService:
         return IMAGE_PROMPT_REGEX.sub(_replacement, markdown)
 
     # ------------------------------------------------------------------
+    # Image Generation
+    # ------------------------------------------------------------------
+    def generate_image(self, prompt: str) -> str:
+        """Generate a single image from a text prompt and return as base64."""
+        if not self.settings.enable_image_generation:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Image generation is disabled in the current configuration.",
+            )
+        try:
+            return self._image_client.generate(prompt)
+        except Exception as exc:
+            logger.exception("Image generation failed for prompt '%s'", prompt)
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Image generation failed: {exc}",
+            ) from exc
+
+    # ------------------------------------------------------------------
     # Chat
     # ------------------------------------------------------------------
     def continue_chat(self, history: List[ChatMessage], system_instruction: str, message: str) -> str:

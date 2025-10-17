@@ -53,3 +53,11 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     message: str
+
+
+class ImageRequest(BaseModel):
+    prompt: str = Field(..., description="Text prompt for image generation")
+
+
+class ImageResponse(BaseModel):
+    image: str = Field(..., description="Base64-encoded JPEG image")
