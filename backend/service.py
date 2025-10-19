@@ -378,7 +378,43 @@ class StudyBuddyService:
         elif len(image_prompts) < 3:
             logger.warning(f"Only {len(image_prompts)} IMAGE_PROMPT tags found (expected 3)")
         
-        # Clean up whitespace
+        # Fix markdown formatting: Remove ALL indentation and ensure proper spacing
+        # Indented lines (4+ spaces) are treated as code blocks in markdown
+        lines = markdown.split('\n')
+        fixed_lines = []
+        
+        for i, line in enumerate(lines):
+            # Strip leading whitespace from ALL non-empty lines
+            # The model often adds indentation which breaks markdown
+            if line.strip():
+                cleaned_line = line.strip()
+                
+                # Check if this is an IMAGE_PROMPT line
+                if cleaned_line.startswith('[IMAGE_PROMPT:'):
+                    # Ensure blank line before (if not already)
+                    if fixed_lines and fixed_lines[-1].strip():
+                        fixed_lines.append('')
+                    fixed_lines.append(cleaned_line)
+                    # Ensure blank line after
+                    if i + 1 < len(lines) and lines[i + 1].strip():
+                        fixed_lines.append('')
+                # Check if this is a header
+                elif cleaned_line.startswith('##'):
+                    # Ensure blank line before header (if not already and not first line)
+                    if fixed_lines and fixed_lines[-1].strip():
+                        fixed_lines.append('')
+                    fixed_lines.append(cleaned_line)
+                    # No extra line after headers
+                else:
+                    # Regular content line - just strip the indentation
+                    fixed_lines.append(cleaned_line)
+            else:
+                # Preserve empty lines
+                fixed_lines.append('')
+        
+        markdown = '\n'.join(fixed_lines)
+        
+        # Clean up excessive whitespace (more than 2 blank lines)
         markdown = re.sub(r'\n{3,}', '\n\n', markdown.strip())
         
         return markdown
