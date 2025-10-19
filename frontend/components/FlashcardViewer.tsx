@@ -46,26 +46,30 @@ const FlashcardViewer: React.FC<FlashcardViewerProps> = ({ flashcards }) => {
     <div className="flex flex-col items-center w-full max-w-2xl mx-auto">
         <div className="w-full h-80" style={{ perspective: '1000px' }}>
              <div
-                className={`relative w-full h-full text-center transition-transform duration-500 rounded-2xl shadow-lg cursor-pointer bg-gray-800 border border-gray-700 overflow-hidden`}
+                className="relative w-full h-full text-center rounded-2xl shadow-lg cursor-pointer bg-gray-800 border border-gray-700 overflow-hidden"
                 onClick={() => setIsFlipped(!isFlipped)}
-                style={{ transformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
             >
                 <div
-                    className="absolute inset-0 w-full h-full p-6 flex items-center justify-center bg-gray-900 rounded-2xl"
-                    style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(0deg)' }}
+                    className="absolute inset-0 w-full h-full transition-transform duration-500"
+                    style={{ transformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
                 >
-                    <div className="space-y-3 text-left sm:text-center">
-                        <p className="text-gray-400 text-sm">Question</p>
-                        <p className="text-2xl font-semibold text-white">{currentCard.question}</p>
+                    <div
+                        className="absolute inset-0 w-full h-full p-6 flex items-center justify-center bg-gray-900"
+                        style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(0deg)' }}
+                    >
+                        <div className="space-y-3 text-left sm:text-center">
+                            <p className="text-gray-400 text-sm">Question</p>
+                            <p className="text-2xl font-semibold text-white">{currentCard.question}</p>
+                        </div>
                     </div>
-                </div>
-                <div
-                    className="absolute inset-0 w-full h-full p-6 flex items-center justify-center bg-gradient-to-br from-cyan-900 to-gray-900 rounded-2xl"
-                    style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
-                >
-                    <div className="space-y-3 text-left sm:text-center">
-                        <p className="text-cyan-300 text-sm">Answer</p>
-                        <p className="text-xl font-medium text-white">{currentCard.answer}</p>
+                    <div
+                        className="absolute inset-0 w-full h-full p-6 flex items-center justify-center bg-gradient-to-br from-cyan-900 to-gray-900"
+                        style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+                    >
+                        <div className="space-y-3 text-left sm:text-center">
+                            <p className="text-cyan-300 text-sm">Answer</p>
+                            <p className="text-xl font-medium text-white">{currentCard.answer}</p>
+                        </div>
                     </div>
                 </div>
             </div>
