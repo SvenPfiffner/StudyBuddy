@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     """Runtime configuration for the StudyBuddy backend."""
 
     text_model_id: str = Field(
-        default="Qwen/Qwen2.5-7B-Instruct",
+        default="meta-llama/Llama-3.1-8B-Instruct",
         description="Hugging Face model id used for text generation.",
     )
     image_model_id: str = Field(

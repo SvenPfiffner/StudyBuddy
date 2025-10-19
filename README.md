@@ -18,7 +18,7 @@
 
 ### 🚀 Backend Setup
 
-The backend runs locally using PyTorch and Hugging Face models. You'll need a GPU with at least 8GB VRAM for optimal performance.
+The backend runs locally using PyTorch and Hugging Face models. The application was developed and tested with an RTX 4090 with 24GB VRAM. Choose AI models based on your VRAM availability (see section: ⚙️ Configuration Options)
 
 **Installation:**
 
@@ -73,6 +73,10 @@ Different models have different strengths and hardware requirements. Here are so
 
 💡 **Why choose different models?** Larger models are smarter but need more VRAM and run slower. Smaller models are faster and use less memory but may struggle with complex reasoning. Pick what fits your hardware and patience level!
 
+💡 **Disable Image Generation:** If you don't need generated images in your summaries, consider disabling image generation and use the saved VRAM for a more capable text model.
+
+🚧 **Use API's:** If you want to use external text or image tools via API and are an advanced user, you can override the generative functions in ``llm.py`` to hook them up. If there is demand, we might add common API's like Google or OpenAI natively in the future.
+
 ### 🎨 Frontend Setup
 
 The frontend is a React + TypeScript app built with Vite.
@@ -111,6 +115,8 @@ This backend has **no authentication, rate limiting, or API keys**. It's designe
 - Use a reverse proxy (nginx, Caddy) with rate limiting for production
 
 For personal use on `localhost` or a trusted local network, you're fine! 😊
+
+🚧 Should there be demand, we might consider adding key based API authentication in the future.
 
 ## Collaboration 🤝
 
