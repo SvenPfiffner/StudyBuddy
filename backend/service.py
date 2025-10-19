@@ -186,11 +186,11 @@ class StudyBuddyService:
             6. After summary, add ONE line: [IMAGE_PROMPT: description]
             7. Do NOT use markdown image syntax like ![text](url)
             8. Do NOT skip sections or change section names
-            9. IMAGE_PROMPT descriptions should be detailed (50+ words each)
-            10. Describe scenes to be ILLUSTRATED/DRAWN, include: setting, objects, colors, lighting, action
+            9. IMAGE_PROMPT descriptions should be concise but vivid (30-60 words each)
+            10. Describe scenes to be ILLUSTRATED/DRAWN, include: main subject, key visual elements, colors, style
 
             Example IMAGE_PROMPT:
-            [IMAGE_PROMPT: A cross-section illustration of a leaf cell, showing bright green chloroplasts suspended in cytoplasm, with sunlight streaming through the cell wall as golden rays, while tiny ATP molecules glow like fireflies around the thylakoid membranes, and water droplets rise through blue xylem vessels in the background]
+            [IMAGE_PROMPT: A cross-section illustration of a leaf cell with bright green chloroplasts, sunlight rays streaming through, and glowing ATP molecules around thylakoid membranes, scientific illustration style]
 
             <<<STUDY_MATERIAL>>>
             {script_content.strip()}
@@ -346,6 +346,18 @@ class StudyBuddyService:
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Image generation is disabled in the current configuration.",
             )
+        
+        # Simplify and truncate prompt if too long
+        # SDXL models work best with prompts under 77 tokens (~300 chars)
+        if len(prompt) > 300:
+            logger.warning(f"Image prompt too long ({len(prompt)} chars), truncating")
+            # Take first sentence or first 250 chars
+            first_sentence = prompt.split('.')[0]
+            if len(first_sentence) < 250:
+                prompt = first_sentence + "."
+            else:
+                prompt = prompt[:250] + "..."
+        
         try:
             return self._image_client.generate(prompt)
         except Exception as exc:
