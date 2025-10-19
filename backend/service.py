@@ -158,51 +158,55 @@ class StudyBuddyService:
     def generate_summary_with_images(self, script_content: str) -> str:
         prompt = dedent(
             f"""\
-            You are StudyBuddy, an expert educator who writes structured study guides with vivid illustrative imagery.
+            Create a study guide summary following this EXACT structure. Do not deviate from this format.
 
-            Study material appears between <<<STUDY_MATERIAL>>> markers.
+            MANDATORY FORMAT - Copy this structure exactly:
 
-            Process:
-            1. Skim the material and determine 3-4 learning objectives (keep them to yourself).
-            2. Expand the objectives into a 400-600 word Markdown summary using the format below.
-            3. Verify the checklist before finalizing your response.
-
-            Mandatory Markdown format:
             ## Introduction
-            [content]
+            [Write 1-2 paragraphs here introducing the main topic and why it matters]
 
-            [IMAGE_PROMPT: detailed description]
+            [IMAGE_PROMPT: Describe a vivid illustration scene here with concrete visual details]
 
-            ## Main Section
-            [content]
+            ## Key Concepts
+            [Write 2-3 paragraphs here explaining the main ideas, processes, or mechanisms]
 
-            [IMAGE_PROMPT: detailed description]
+            [IMAGE_PROMPT: Describe another illustration showing the concepts in action]
 
-            ## Conclusion
-            [content]
+            ## Summary
+            [Write 1-2 paragraphs here summarizing the key takeaways]
 
-            [IMAGE_PROMPT: detailed description]
+            [IMAGE_PROMPT: Describe a final illustration that reinforces the main message]
 
-            Illustration guidance:
-            - Describe dynamic scenes or naturalistic illustrations that communicate the concept without on-image text.
-            - Highlight concrete visual elements (setting, objects, colors, motion, lighting).
-            - Avoid infographic styles, labels, or word art; let the composition convey meaning visually.
-            - Example: [IMAGE_PROMPT: A cross-section illustration of a leaf showing water rising through bright blue xylem vessels while morning light streams across the canopy]
+            CRITICAL RULES:
+            1. Start with "## Introduction" exactly as shown
+            2. After introduction paragraphs, add ONE line: [IMAGE_PROMPT: description]
+            3. Then add "## Key Concepts" section with paragraphs
+            4. After key concepts, add ONE line: [IMAGE_PROMPT: description]
+            5. Then add "## Summary" section with paragraphs
+            6. After summary, add ONE line: [IMAGE_PROMPT: description]
+            7. Do NOT use markdown image syntax like ![text](url)
+            8. Do NOT skip sections or change section names
+            9. IMAGE_PROMPT descriptions should be detailed (50+ words each)
+            10. Describe scenes to be ILLUSTRATED/DRAWN, include: setting, objects, colors, lighting, action
 
-            Checklist:
-            - Exactly 3 lines begin with [IMAGE_PROMPT: and each follows the guidance above.
-            - Total word count between 400 and 600.
-            - No dialogue tags, meta-commentary, or instructions to the user.
-            - Sentences are complete and well-formed.
+            Example IMAGE_PROMPT:
+            [IMAGE_PROMPT: A cross-section illustration of a leaf cell, showing bright green chloroplasts suspended in cytoplasm, with sunlight streaming through the cell wall as golden rays, while tiny ATP molecules glow like fireflies around the thylakoid membranes, and water droplets rise through blue xylem vessels in the background]
 
             <<<STUDY_MATERIAL>>>
             {script_content.strip()}
             <<<END_STUDY_MATERIAL>>>
 
-            Summary:"""
+            Now write the study guide following the exact format above:
+
+            ## Introduction"""
         )
-        result = self._safe_generate(prompt, max_new_tokens=768)
+        # Use lower temperature for more consistent formatting
+        result = self._safe_generate(prompt, max_new_tokens=768, temperature=0.3)
         markdown = result.text
+        
+        # If the model didn't include the ## Introduction prefix, add it back
+        if not markdown.strip().startswith("##"):
+            markdown = "## Introduction\n" + markdown
         
         # Aggressive cleanup of hallucinations
         import re
@@ -247,6 +251,85 @@ class StudyBuddyService:
         
         for pattern in cleanup_patterns:
             markdown = re.sub(pattern, "", markdown, flags=re.IGNORECASE)
+        
+        # Clean up markdown image syntax that the model might hallucinate
+        # Convert ![alt text](url) to a generic IMAGE_PROMPT if found
+        markdown_image_pattern = r'!\[([^\]]*)\]\([^\)]+\)'
+        def replace_markdown_image(match):
+            alt_text = match.group(1)
+            # Try to extract a meaningful description from the alt text
+            if alt_text and len(alt_text) > 10:
+                logger.warning(f"Found markdown image syntax, converting to IMAGE_PROMPT: {alt_text}")
+                return f"[IMAGE_PROMPT: {alt_text}]"
+            else:
+                # If alt text is empty or too short, create a generic prompt
+                logger.warning("Found markdown image with poor alt text, using generic prompt")
+                return "[IMAGE_PROMPT: An illustration related to the study material]"
+        
+        markdown = re.sub(markdown_image_pattern, replace_markdown_image, markdown)
+        
+        # Validate that we have IMAGE_PROMPT tags and proper structure
+        image_prompts = IMAGE_PROMPT_REGEX.findall(markdown)
+        has_sections = bool(re.search(r'##\s+(Introduction|Key Concepts|Summary)', markdown))
+        
+        # If format is completely wrong, try one more time with even stricter prompt
+        if len(image_prompts) == 0 or not has_sections:
+            logger.warning(f"Summary format incorrect (prompts: {len(image_prompts)}, sections: {has_sections}). Retrying with stricter prompt.")
+            
+            retry_prompt = dedent(
+                f"""\
+                You must follow this EXACT template. Fill in the [CONTENT] sections with your text.
+
+                ## Introduction
+                [CONTENT: Write 1-2 paragraphs introducing the topic]
+
+                [IMAGE_PROMPT: Write a detailed 50+ word description of an illustration scene with concrete visual elements like colors, objects, lighting, and composition]
+
+                ## Key Concepts
+                [CONTENT: Write 2-3 paragraphs explaining the main ideas]
+
+                [IMAGE_PROMPT: Write another detailed 50+ word description of an illustration showing the concept visually]
+
+                ## Summary
+                [CONTENT: Write 1-2 paragraphs summarizing key points]
+
+                [IMAGE_PROMPT: Write a final detailed 50+ word description of an illustration reinforcing the message]
+
+                DO NOT:
+                - Skip any sections
+                - Use ![image](url) syntax
+                - Write single-paragraph summaries
+                - Omit the [IMAGE_PROMPT: lines
+
+                Study material:
+                {script_content.strip()[:500]}...
+
+                Now generate following the template exactly:
+
+                ## Introduction"""
+            )
+            
+            retry_result = self._safe_generate(retry_prompt, max_new_tokens=768, temperature=0.1)
+            retry_markdown = retry_result.text
+            
+            if not retry_markdown.strip().startswith("##"):
+                retry_markdown = "## Introduction\n" + retry_markdown
+            
+            # Check if retry is better
+            retry_image_prompts = IMAGE_PROMPT_REGEX.findall(retry_markdown)
+            retry_has_sections = bool(re.search(r'##\s+(Introduction|Key Concepts|Summary)', retry_markdown))
+            
+            if len(retry_image_prompts) > len(image_prompts) or (retry_has_sections and not has_sections):
+                logger.info(f"Retry improved format: {len(retry_image_prompts)} prompts, sections: {retry_has_sections}")
+                markdown = retry_markdown
+                image_prompts = retry_image_prompts
+            else:
+                logger.warning("Retry did not improve format, using original")
+        
+        if len(image_prompts) == 0:
+            logger.warning("No IMAGE_PROMPT tags found in generated summary. Model may have ignored instructions.")
+        elif len(image_prompts) < 3:
+            logger.warning(f"Only {len(image_prompts)} IMAGE_PROMPT tags found (expected 3)")
         
         # Clean up whitespace
         markdown = re.sub(r'\n{3,}', '\n\n', markdown.strip())
