@@ -6,6 +6,7 @@ import json
 import logging
 import re
 from functools import lru_cache
+from textwrap import dedent
 from typing import Any, List
 
 from fastapi import HTTPException, status
@@ -37,10 +38,27 @@ class StudyBuddyService:
     # Flashcards
     # ------------------------------------------------------------------
     def generate_flashcards(self, script_content: str) -> List[Flashcard]:
-        prompt = (
-            "You are an educational assistant. Read the study material below and generate a JSON array of flashcards. "
-            "Each entry must have the keys 'question' and 'answer'. Focus on the most important facts, definitions, and concepts.\n\n"
-            "Study material:\n" + script_content + "\n\nReturn only valid JSON."
+        prompt = dedent(
+            f"""\
+            You are StudyBuddy, an educational assistant who distills material into flashcards students can memorize quickly.
+
+            The study material is delimited by <<<STUDY_MATERIAL>>> markers. Produce concise, self-contained flashcards that cover:
+            - Core definitions and facts students must memorize.
+            - Key processes or cause-effect relationships.
+            - Comparisons or contrasts that clarify concepts.
+
+            Quality guidelines:
+            - Keep questions to a single sentence phrased as prompts (avoid yes/no).
+            - Answers should be specific and limited to 1-3 sentences.
+            - Avoid repeating the same fact across multiple cards.
+            - Favor factual precision over creative wording.
+            - Aim for 8-12 high-quality flashcards; prioritize breadth if the material allows.
+
+            <<<STUDY_MATERIAL>>>
+            {script_content.strip()}
+            <<<END_STUDY_MATERIAL>>>
+
+            Respond by filling the JSON schema (list of flashcards with 'question' and 'answer' fields) with no supplementary prose."""
         )
         structured = self._maybe_generate_structured(
             prompt,
@@ -63,10 +81,26 @@ class StudyBuddyService:
     # Practice Exam
     # ------------------------------------------------------------------
     def generate_practice_exam(self, script_content: str) -> List[ExamQuestion]:
-        prompt = (
-            "You are preparing a multiple choice practice exam. Based on the study material below, create at least five questions. "
-            "Return a JSON array where every object has the keys 'question', 'options' (exactly four), and 'correctAnswer' which must be EXACTLY one of the options - copy it verbatim.\n\n"
-            "Study material:\n" + script_content + "\n\nReturn only valid JSON."
+        prompt = dedent(
+            f"""\
+            You are StudyBuddy, a teacher crafting a multiple-choice practice exam from the provided material.
+
+            Study material is wrapped in <<<STUDY_MATERIAL>>> markers. Your task is to design exam questions that:
+            - Target distinct, high-value concepts students must master.
+            - Challenge common misconceptions with realistic distractors.
+            - Use clear, direct language without rhetorical fluff.
+
+            Quality guidelines:
+            - Write 5-7 questions that can be answered using the study material alone.
+            - Ensure each set of four options are mutually exclusive and similar in length.
+            - The correct answer should be the only fully accurate statement; others should contain a specific flaw.
+            - Copy the correct answer exactly into the 'correctAnswer' field.
+
+            <<<STUDY_MATERIAL>>>
+            {script_content.strip()}
+            <<<END_STUDY_MATERIAL>>>
+
+            Respond by filling the JSON schema (list of questions with 'question', 'options', and 'correctAnswer') with no extra commentary."""
         )
         structured = self._maybe_generate_structured(
             prompt,
@@ -92,26 +126,50 @@ class StudyBuddyService:
     # Summary + images
     # ------------------------------------------------------------------
     def generate_summary_with_images(self, script_content: str) -> str:
-        prompt = (
-            "Create an educational summary with EXACTLY 3 image placeholders.\n\n"
-            "MANDATORY FORMAT:\n"
-            "## Introduction\n"
-            "[content]\n\n"
-            "[IMAGE_PROMPT: detailed description]\n\n"
-            "## Main Section\n"
-            "[content]\n\n"
-            "[IMAGE_PROMPT: detailed description]\n\n"
-            "## Conclusion\n"
-            "[content]\n\n"
-            "[IMAGE_PROMPT: detailed description]\n\n"
-            "CRITICAL RULES:\n"
-            "- You MUST include EXACTLY 3 lines starting with [IMAGE_PROMPT:\n"
-            "- Each [IMAGE_PROMPT: must describe a diagram, chart, or illustration\n"
-            "- NO dialogue (Human:, Assistant:, Revised)\n"
-            "- NO incomplete sentences\n"
-            "- Keep summary 400-600 words\n\n"
-            "Study material:\n" + script_content + "\n\n"
-            "Summary with 3 image placeholders:"
+        prompt = dedent(
+            f"""\
+            You are StudyBuddy, an expert educator who writes structured study guides with vivid illustrative imagery.
+
+            Study material appears between <<<STUDY_MATERIAL>>> markers.
+
+            Process:
+            1. Skim the material and determine 3-4 learning objectives (keep them to yourself).
+            2. Expand the objectives into a 400-600 word Markdown summary using the format below.
+            3. Verify the checklist before finalizing your response.
+
+            Mandatory Markdown format:
+            ## Introduction
+            [content]
+
+            [IMAGE_PROMPT: detailed description]
+
+            ## Main Section
+            [content]
+
+            [IMAGE_PROMPT: detailed description]
+
+            ## Conclusion
+            [content]
+
+            [IMAGE_PROMPT: detailed description]
+
+            Illustration guidance:
+            - Describe dynamic scenes or naturalistic illustrations that communicate the concept without on-image text.
+            - Highlight concrete visual elements (setting, objects, colors, motion, lighting).
+            - Avoid infographic styles, labels, or word art; let the composition convey meaning visually.
+            - Example: [IMAGE_PROMPT: A cross-section illustration of a leaf showing water rising through bright blue xylem vessels while morning light streams across the canopy]
+
+            Checklist:
+            - Exactly 3 lines begin with [IMAGE_PROMPT: and each follows the guidance above.
+            - Total word count between 400 and 600.
+            - No dialogue tags, meta-commentary, or instructions to the user.
+            - Sentences are complete and well-formed.
+
+            <<<STUDY_MATERIAL>>>
+            {script_content.strip()}
+            <<<END_STUDY_MATERIAL>>>
+
+            Summary:"""
         )
         result = self._safe_generate(prompt, max_new_tokens=768)
         markdown = result.text
@@ -189,16 +247,25 @@ class StudyBuddyService:
     # ------------------------------------------------------------------
     def continue_chat(self, history: List[ChatMessage], system_instruction: str, message: str) -> str:
         conversation = self._render_history(history)
-        prompt = (
-            f"{system_instruction.strip()}\n\n"
-            "You are a focused study assistant. Provide clear, concise, and helpful explanations.\n"
-            "Rules:\n"
-            "- Answer the question directly without meta-commentary\n"
-            "- Be educational and accurate\n"
-            "- Use examples when helpful\n"
-            "- Keep responses concise (2-4 paragraphs max)\n"
-            "- DO NOT add notes like 'Please note', 'Remember', or instructions to the user\n\n"
-            f"Conversation:\n{conversation}\nUser: {message}\nAssistant:"
+        prompt = dedent(
+            f"""{system_instruction.strip()}
+
+            You are StudyBuddy, a focused tutor who responds with clear, evidence-based explanations grounded in the conversation history.
+
+            Instructions:
+            - Provide the best possible answer to the latest user question.
+            - If key information is missing, ask the user to clarify instead of guessing.
+            - Use concrete examples when they improve understanding.
+            - Keep the reply within four short paragraphs or fewer.
+            - Do not include meta-commentary such as "Please note" or system-level reminders.
+            - When referencing earlier turns, quote short phrases from the conversation in quotation marks.
+            - Silently reflect on the user's intent before responding, but do not reveal that reflection.
+
+            Conversation so far:
+            {conversation}
+
+            User: {message}
+            Assistant:"""
         )
         result = self._safe_generate(prompt, max_new_tokens=512)
         response = result.text
