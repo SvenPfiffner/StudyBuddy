@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import iconPng from '../icons/icon.png';
 import type { ChatMessage } from '../types';
 import Spinner from './Spinner';
 
@@ -47,8 +48,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ history, onSendMessage, i
                     {history.map((message, index) => (
                         <div key={index} className={`flex items-start gap-4 ${message.role === 'user' ? 'justify-end' : ''}`}>
                             {message.role === 'model' && (
-                                <div className="w-8 h-8 rounded-full bg-cyan-900/50 flex items-center justify-center flex-shrink-0">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 7L12 12" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 22V12" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M22 7L12 12" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M17 4.5L7 9.5" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                <div className="w-8 h-8 rounded-full bg-cyan-900/50 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                    <img src={iconPng} alt="AI" className="w-5 h-5 object-contain" />
                                 </div>
                             )}
                             <div className={`p-4 rounded-2xl max-w-lg ${message.role === 'user' ? 'bg-cyan-600 text-white rounded-br-none' : 'bg-gray-700 text-gray-200 rounded-bl-none'}`}>

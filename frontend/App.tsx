@@ -19,14 +19,10 @@ import {
 import type { Project, ChatMessage } from './types';
 import type { StudyMode } from './types';
 
+import iconPng from './icons/icon.png';
+
 const Logo = () => (
-    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M2 7L12 12" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M12 22V12" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M22 7L12 12" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M17 4.5L7 9.5" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
+  <img src={iconPng} alt="Study Buddy icon" className="w-10 h-10 object-contain" />
 );
 
 type View = 'list' | 'detail' | 'study';
