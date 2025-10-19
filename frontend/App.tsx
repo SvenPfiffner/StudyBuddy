@@ -339,7 +339,7 @@ const App: React.FC = () => {
       </main>
 
       <footer className="text-center text-gray-500 mt-16 pb-4">
-        <p>Developed with ❤️ by Sven Pfiffner - <a href="https://github.com/pfiffner" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors">GitHub</a></p>
+        <p>Developed with ❤️ by Sven Pfiffner - <a href="https://github.com/SvenPfiffner/StudyBuddy" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition-colors">GitHub</a></p>
       </footer>
 
       {error && (
