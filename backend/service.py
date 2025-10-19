@@ -489,6 +489,7 @@ class StudyBuddyService:
         for pattern in cleanup_patterns:
             response = re.sub(pattern, "", response, flags=re.IGNORECASE | re.MULTILINE | re.DOTALL)
         
+        response = self._strip_hallucinated_turns(response)
         return response.strip()
 
     def _validate_exam_questions(self, questions: List[ExamQuestion]) -> List[ExamQuestion]:
@@ -684,6 +685,28 @@ class StudyBuddyService:
             for part in entry.parts:
                 rendered_turns.append(f"{speaker}: {part.text}")
         return "\n".join(rendered_turns)
+
+    @staticmethod
+    def _strip_hallucinated_turns(text: str) -> str:
+        """Trim model outputs that fabricate additional conversation turns."""
+        text = text.strip()
+        if not text:
+            return text
+
+        # Drop an initial assistant label if the model echoes the role.
+        leading_label = re.compile(r"^[^\S\n]*(?:Assistant|StudyBuddy|Tutor)\s*:\s*", re.IGNORECASE)
+        text = re.sub(leading_label, "", text, count=1)
+
+        # Cut off once the model starts inventing a new turn label.
+        turn_marker = re.compile(
+            r"\n[^\S\n]*(?:User|Human|Student|Teacher|System|Assistant)\s*:",
+            re.IGNORECASE,
+        )
+        match = turn_marker.search(text)
+        if match:
+            text = text[:match.start()].rstrip()
+
+        return text
 
 
 @lru_cache
