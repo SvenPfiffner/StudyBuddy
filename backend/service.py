@@ -186,11 +186,26 @@ class StudyBuddyService:
             6. After summary, add ONE line: [IMAGE_PROMPT: description]
             7. Do NOT use markdown image syntax like ![text](url)
             8. Do NOT skip sections or change section names
-            9. IMAGE_PROMPT descriptions should be concise but vivid (30-60 words each)
-            10. Describe scenes to be ILLUSTRATED/DRAWN, include: main subject, key visual elements, colors, style
-
-            Example IMAGE_PROMPT:
-            [IMAGE_PROMPT: A cross-section illustration of a leaf cell with bright green chloroplasts, sunlight rays streaming through, and glowing ATP molecules around thylakoid membranes, scientific illustration style]
+            9. IMAGE_PROMPT descriptions should be SHORT (20-40 words maximum)
+            
+            IMAGE PROMPT RULES - READ CAREFULLY:
+            - Create SYMBOLIC or CONCEPTUAL scenes, NOT technical diagrams
+            - NO charts, graphs, flowcharts, circuit diagrams, protocol diagrams, or network diagrams
+            - NO text, labels, arrows, or annotations in the image
+            - Think like stock photography: what OBJECTS, SCENES, or METAPHORS represent this concept?
+            - Use concrete objects: locks, keys, doors, hands, books, light, nature, architecture
+            - Focus on: lighting, mood, composition, realistic objects, symbolic representation
+            
+            GOOD examples (symbolic/conceptual):
+            [IMAGE_PROMPT: A glowing padlock surrounded by floating digital keys in a dark blue environment, symbolizing encryption and security]
+            [IMAGE_PROMPT: Two hands exchanging a sealed envelope with a wax stamp, representing secure message transfer, warm lighting]
+            [IMAGE_PROMPT: A fortress gate with intricate lock mechanisms, symbolizing authentication, dramatic sunset lighting]
+            
+            BAD examples (too technical - avoid these):
+            ❌ A flowchart showing client-server handshake protocol
+            ❌ A diagram with arrows connecting nodes
+            ❌ A cryptographic algorithm visualization with equations
+            ❌ A network topology diagram
 
             <<<STUDY_MATERIAL>>>
             {script_content.strip()}
@@ -268,6 +283,38 @@ class StudyBuddyService:
         
         markdown = re.sub(markdown_image_pattern, replace_markdown_image, markdown)
         
+        # Clean up technical diagram language from image prompts
+        def cleanup_image_prompt(match):
+            prompt = match.group(1)
+            original = prompt
+            
+            # Remove technical diagram indicators
+            technical_terms = [
+                'diagram', 'flowchart', 'chart', 'graph', 'illustration showing',
+                'network topology', 'protocol flow', 'algorithm', 'visualization',
+                'arrows', 'boxes', 'nodes', 'edges', 'labeled', 'annotated',
+                'step-by-step', 'sequence diagram'
+            ]
+            
+            # Check if prompt is too technical
+            prompt_lower = prompt.lower()
+            is_technical = any(term in prompt_lower for term in technical_terms)
+            
+            if is_technical:
+                # Try to extract the core concept and make it symbolic
+                # This is a simple heuristic - just warn and keep for now
+                logger.warning(f"Potentially technical image prompt detected: {prompt[:50]}...")
+            
+            # Trim if too long (SDXL works best with shorter prompts)
+            if len(prompt) > 200:
+                prompt = prompt[:200].rsplit(',', 1)[0]  # Cut at last comma
+                logger.info(f"Trimmed long image prompt from {len(original)} to {len(prompt)} chars")
+            
+            return f"[IMAGE_PROMPT: {prompt}]"
+        
+        markdown = re.sub(IMAGE_PROMPT_REGEX, cleanup_image_prompt, markdown)
+        
+        # Re-extract after cleanup
         # Validate that we have IMAGE_PROMPT tags and proper structure
         image_prompts = IMAGE_PROMPT_REGEX.findall(markdown)
         has_sections = bool(re.search(r'##\s+(Introduction|Key Concepts|Summary)', markdown))
@@ -283,17 +330,17 @@ class StudyBuddyService:
                 ## Introduction
                 [CONTENT: Write 1-2 paragraphs introducing the topic]
 
-                [IMAGE_PROMPT: Write a detailed 50+ word description of an illustration scene with concrete visual elements like colors, objects, lighting, and composition]
+                [IMAGE_PROMPT: A SHORT symbolic scene (20-40 words) using CONCRETE OBJECTS - NO diagrams, charts, or technical visualizations. Think stock photography with objects like locks, keys, books, nature, light]
 
                 ## Key Concepts
                 [CONTENT: Write 2-3 paragraphs explaining the main ideas]
 
-                [IMAGE_PROMPT: Write another detailed 50+ word description of an illustration showing the concept visually]
+                [IMAGE_PROMPT: Another SHORT symbolic scene (20-40 words) representing the concept metaphorically with REAL OBJECTS and dramatic lighting]
 
                 ## Summary
                 [CONTENT: Write 1-2 paragraphs summarizing key points]
 
-                [IMAGE_PROMPT: Write a final detailed 50+ word description of an illustration reinforcing the message]
+                [IMAGE_PROMPT: A final SHORT symbolic scene (20-40 words) using CONCRETE OBJECTS to represent the main message]
 
                 DO NOT:
                 - Skip any sections
