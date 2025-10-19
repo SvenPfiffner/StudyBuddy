@@ -7,15 +7,31 @@
 
 **StudyBuddy** is your personal AI-powered study companion that transforms your lecture notes and study materials into interactive learning tools! 📚 Whether you need flashcards for quick revision, practice exams to test your knowledge, or visual summaries with AI-generated diagrams, StudyBuddy has you covered. Built with a self-hosted backend running state-of-the-art open-source models (Llama, Mistral, Stable Diffusion), it keeps your data private while delivering powerful AI capabilities. Plus, you can chat with an AI tutor that understands your study materials! 🤖💡
 
+<p align="center">
+  <img src="https://github.com/SvenPfiffner/StudyBuddy/blob/main/data/screenshot_main.png" width="600">
+</p>
+
 ## Use Cases
 
 - **Summary** 📝: Generate comprehensive, well-structured Markdown summaries of your study materials, complete with AI-generated diagrams and illustrations. The AI identifies key concepts that benefit from visual aids and creates custom images on-the-fly to enhance understanding. Perfect for condensing dense textbooks or lecture notes into digestible visual guides!
 
 - **Flashcards** 🃏: Automatically extract key concepts, definitions, and facts from your materials and transform them into question-answer flashcard pairs. Ideal for memorization and quick review sessions. The AI focuses on the most important information, so you don't waste time on trivial details.
 
+<p align="center">
+  <img src="https://github.com/SvenPfiffner/StudyBuddy/blob/main/data/screenshot_flashcard.png" width="600">
+</p>
+
 - **Exam Questions** 📋: Generate realistic multiple-choice practice exams based on your study content. Each question comes with four options and a verified correct answer. Great for testing your knowledge before the real exam and identifying gaps in your understanding!
 
+<p align="center">
+  <img src="https://github.com/SvenPfiffner/StudyBuddy/blob/main/data/screenshot_exam.png" width="600">
+</p>
+
 - **Chat** 💬: Have an interactive conversation with an AI tutor that has full context of your study materials. Ask questions, request clarifications, or explore topics in depth. The AI adapts its responses to your learning style and provides clear, actionable explanations.
+
+<p align="center">
+  <img src="https://github.com/SvenPfiffner/StudyBuddy/blob/main/data/screenshot_chat.png" width="600">
+</p>
 
 ## Quick Start
 
