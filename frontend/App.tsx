@@ -324,10 +324,12 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 sm:p-8 flex flex-col">
       <header className="text-center mb-12">
-        <div className="flex items-center justify-center gap-4">
+        <div className="flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
             <Logo />
-            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-white to-cyan-400 text-transparent bg-clip-text">
-            Study Buddy AI
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white leading-tight">
+              <span className="block bg-gradient-to-r from-white to-cyan-400 text-transparent bg-clip-text pb-1">
+                Study Buddy AI
+              </span>
             </h1>
         </div>
         <p className="mt-4 max-w-2xl mx-auto text-lg text-gray-400">
