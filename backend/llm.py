@@ -70,9 +70,11 @@ class TextGenerationClient:
         self._structured_pipeline = None
         if from_hf_pipeline and Mode:
             try:
+                # Use JSON_SIMPLE mode for more reliable structured output with local models
+                # This mode is more forgiving and works better with smaller models
                 self._structured_pipeline = from_hf_pipeline(
                     self._pipeline,
-                    mode=Mode.JSON,
+                    mode=Mode.JSON_SIMPLE if hasattr(Mode, 'JSON_SIMPLE') else Mode.JSON,
                 )
             except Exception as exc:  # pragma: no cover - depends on optional package
                 logger.warning("Instructor structured output disabled: %s", exc)
@@ -209,7 +211,7 @@ class ImageGenerationClient:
                 # SDXL-Turbo: optimized for speed with 1-4 steps, no guidance
                 image = self._pipeline(
                     prompt=prompt,
-                    num_inference_steps=1,
+                    num_inference_steps=4,
                     guidance_scale=0.0,
                 ).images[0]
             else:

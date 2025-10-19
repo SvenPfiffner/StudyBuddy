@@ -15,7 +15,7 @@ class Settings(BaseSettings):
         description="Diffusers checkpoint id used for image generation.",
     )
     max_new_tokens: int = Field(
-        default=512,
+        default=1024,
         description="Maximum number of tokens to generate for a single request.",
     )
     temperature: float = Field(
