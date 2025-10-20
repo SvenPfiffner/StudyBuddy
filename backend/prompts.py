@@ -38,25 +38,25 @@ def get_generate_exam_prompt(script_content: str) -> str:
         - Output ONLY a valid JSON array. Start with [ and end with ]
         - Do NOT include any explanatory text before or after the JSON
         - Do NOT include markdown code fences (```)
-        - Do NOT include phrases like "Here is" or "Please fill out"
         - Your entire response must be parseable as JSON
+        - Each question MUST have EXACTLY 4 options - no more, no less
 
         Each question object must have:
         - "question": A clear, direct question (one sentence)
-        - "options": An array of exactly 4 answer choices (strings)
-        - "correctAnswer": The exact text of one of the options
+        - "options": An array of EXACTLY 4 answer choices (strings) - this is mandatory
+        - "correctAnswer": The exact text of one of the 4 options
 
         Quality guidelines:
         - Target distinct, high-value concepts from the material
-        - Make options mutually exclusive and similar in length
+        - Make all 4 options mutually exclusive and similar in length
         - Only the correct answer should be fully accurate
-        - Create realistic distractors based on common misconceptions
+        - Create 3 realistic distractors based on common misconceptions
 
         <<<STUDY_MATERIAL>>>
         {script_content.strip()}
         <<<END_STUDY_MATERIAL>>>
 
-        JSON array:"""
+        JSON array with each question having EXACTLY 4 options:"""
     )
 
 def get_generate_summary_prompt(script_content: str) -> str:
