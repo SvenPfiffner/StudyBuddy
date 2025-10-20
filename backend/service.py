@@ -12,7 +12,8 @@ from typing import Any, List, Type
 from fastapi import HTTPException, status
 
 from .config import Settings, get_settings
-from .llm import GenerationResult, ImageGenerationClient, TextGenerationClient
+from .llm import ImageGenerationClient
+from .aiservices.localtextgenerationclient import GenerationResult, LocalTextGenerationClient
 from .schemas import (
     ChatMessage,
     ExamQuestion,
@@ -31,7 +32,7 @@ class StudyBuddyService:
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
-        self._text_client = TextGenerationClient(self.settings)
+        self._text_client = LocalTextGenerationClient(self.settings)
         self._image_client = ImageGenerationClient(self.settings)
 
     # ------------------------------------------------------------------
