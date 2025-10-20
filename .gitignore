@@ -34,3 +34,6 @@ __pycache__/
 
 # pytest cache
 .pytest_cache/
+
+# Program logs
+.logs/
