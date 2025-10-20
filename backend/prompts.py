@@ -3,7 +3,7 @@ from textwrap import dedent
 def get_generate_flashcards_prompt(script_content: str) -> str:
     return dedent(
         f"""\
-        Generate a JSON array of 8-12 flashcards from the study material below.
+        Generate a JSON array of 20-30 flashcards from the study material below.
 
         CRITICAL OUTPUT REQUIREMENTS:
         - Output ONLY a valid JSON array. Start with [ and end with ]
@@ -32,7 +32,7 @@ def get_generate_flashcards_prompt(script_content: str) -> str:
 def get_generate_exam_prompt(script_content: str) -> str:
     return dedent(
         f"""\
-        Generate a JSON array of 5-7 multiple-choice exam questions based on the study material below.
+        Generate a JSON array of 15-20 multiple-choice exam questions based on the study material below.
 
         CRITICAL OUTPUT REQUIREMENTS:
         - Output ONLY a valid JSON array. Start with [ and end with ]
@@ -67,17 +67,17 @@ def get_generate_summary_prompt(script_content: str) -> str:
         MANDATORY FORMAT - Copy this structure exactly:
 
         ## Introduction
-        [Write 1-2 paragraphs here introducing the main topic and why it matters]
+        [Write 3-4 paragraphs here introducing the main topic and why it matters]
 
         [IMAGE_PROMPT: Describe a vivid illustration scene here with concrete visual details]
 
         ## Key Concepts
-        [Write 2-3 paragraphs here explaining the main ideas, processes, or mechanisms]
+        [Write 4-6 paragraphs here explaining the main ideas, processes, or mechanisms]
 
         [IMAGE_PROMPT: Describe another illustration showing the concepts in action]
 
         ## Summary
-        [Write 1-2 paragraphs here summarizing the key takeaways]
+        [Write 2-3 paragraphs here summarizing the key takeaways]
 
         [IMAGE_PROMPT: Describe a final illustration that reinforces the main message]
 

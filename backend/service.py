@@ -51,7 +51,7 @@ class StudyBuddyService:
         structured = self._maybe_generate_structured(
             prompt,
             list[Flashcard],
-            max_new_tokens=768,
+            max_new_tokens=1024,
             temperature=0.0,
         )
         if structured is not None:
@@ -71,7 +71,7 @@ class StudyBuddyService:
         return self._generate_json_with_retry(
             prompt,
             Flashcard,
-            max_new_tokens=768,
+            max_new_tokens=1024,
         )
 
     # ------------------------------------------------------------------
@@ -82,7 +82,7 @@ class StudyBuddyService:
         structured = self._maybe_generate_structured(
             prompt,
             list[ExamQuestion],
-            max_new_tokens=1024,
+            max_new_tokens=2048,
             temperature=0.0,
         )
         if structured is not None:
@@ -104,7 +104,7 @@ class StudyBuddyService:
         questions = self._generate_json_with_retry(
             prompt,
             ExamQuestion,
-            max_new_tokens=1024,
+            max_new_tokens=2048,
         )
         return validate_exam_questions(questions)
 
@@ -114,7 +114,7 @@ class StudyBuddyService:
     def generate_summary_with_images(self, script_content: str) -> str:
         prompt = get_generate_summary_prompt(script_content)
         # Use lower temperature for more consistent formatting
-        result = self._safe_generate(prompt, max_new_tokens=768, temperature=0.3)
+        result = self._safe_generate(prompt, max_new_tokens=1024, temperature=0.3)
         markdown = result.text
 
         markdown = fix_markdown(markdown)
