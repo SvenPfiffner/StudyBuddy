@@ -28,3 +28,9 @@ dist-ssr
 
 # Python cache
 __pycache__/
+
+# VSCode settings
+.vscode/
+
+# pytest cache
+.pytest_cache/

@@ -11,6 +11,9 @@
   <img src="https://github.com/SvenPfiffner/StudyBuddy/blob/main/data/screenshot_main.png" width="600">
 </p>
 
+- [FAQ](ttps://github.com/SvenPfiffner/StudyBuddy/blob/main/FAQ.md)
+- [Changelog](https://github.com/SvenPfiffner/StudyBuddy/blob/main/CHANGELOG.md)
+
 ## Use Cases
 
 - **Summary** 📝: Generate comprehensive, well-structured Markdown summaries of your study materials, complete with AI-generated diagrams and illustrations. The AI identifies key concepts that benefit from visual aids and creates custom images on-the-fly to enhance understanding. Perfect for condensing dense textbooks or lecture notes into digestible visual guides!
