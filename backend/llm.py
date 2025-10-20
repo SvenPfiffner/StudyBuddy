@@ -51,13 +51,23 @@ class TextGenerationClient:
                 self.settings.text_model_id,
                 quantization_config=quantization_config,
                 device_map="auto",
+                low_cpu_mem_usage=True,
+            )
+        elif torch.backends.mps.is_available():
+            # MPS (Apple Silicon)
+            self._model = AutoModelForCausalLM.from_pretrained(
+                self.settings.text_model_id,
+                torch_dtype=torch.float16,
+                device_map={"": torch.device("mps")},
+                low_cpu_mem_usage=True,
             )
         else:
             # CPU fallback - no quantization
             self._model = AutoModelForCausalLM.from_pretrained(
                 self.settings.text_model_id,
                 torch_dtype=torch.float32,
-                device_map="auto",
+                device_map="cpu",
+                low_cpu_mem_usage=True,
             )
         
         self._pipeline = pipeline(
@@ -194,6 +204,8 @@ class ImageGenerationClient:
             self._pipeline.to("cuda")
             # Enable memory efficient attention to reduce VRAM usage
             self._pipeline.enable_attention_slicing()
+        elif torch.backends.mps.is_available():
+            self._pipeline.to("mps")
         else:
             self._pipeline.to("cpu")
 
