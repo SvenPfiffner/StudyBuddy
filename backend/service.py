@@ -12,11 +12,15 @@ from typing import Any, List, Type
 from fastapi import HTTPException, status
 
 from .config import Settings, get_settings
-from .utils import fix_markdown
+from .utils import (
+    fix_markdown,
+    validate_exam_questions
+)
 from .prompts import (
     get_generate_exam_prompt,
     get_generate_flashcards_prompt,
-    get_generate_summary_prompt
+    get_generate_summary_prompt,
+    get_chat_prompt
 )
 from .aiservices.localimagegenerationclient import LocalImageGenerationClient
 from .aiservices.localtextgenerationclient import GenerationResult, LocalTextGenerationClient
@@ -29,8 +33,6 @@ from .schemas import (
 )
 
 logger = logging.getLogger(__name__)
-
-IMAGE_PROMPT_REGEX = re.compile(r"\[IMAGE_PROMPT:\s*(.*?)\s*\]")
 
 
 class StudyBuddyService:
@@ -96,7 +98,7 @@ class StudyBuddyService:
                         questions = list(ExamResponse.model_validate(structured).root)
                 else:
                     questions = list(ExamResponse.model_validate(structured).root)
-                return self._validate_exam_questions(questions)
+                return self.validate_exam_questions(questions)
             except Exception as exc:  # pragma: no cover - defensive
                 logger.warning("Failed to interpret structured exam output: %s", exc)
         questions = self._generate_json_with_retry(
@@ -104,7 +106,7 @@ class StudyBuddyService:
             ExamQuestion,
             max_new_tokens=1024,
         )
-        return self._validate_exam_questions(questions)
+        return validate_exam_questions(questions)
 
     # ------------------------------------------------------------------
     # Summary + images
@@ -173,50 +175,12 @@ class StudyBuddyService:
         response = self._strip_hallucinated_turns(response)
         return response.strip()
 
-    def _validate_exam_questions(self, questions: List[ExamQuestion]) -> List[ExamQuestion]:
-        for idx, question in enumerate(questions):
-            if len(question.options) != 4:
-                logger.error(
-                    "Question %d has %d options instead of 4: %s",
-                    idx,
-                    len(question.options),
-                    question.options,
-                )
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=f"Generated exam question {idx+1} does not have exactly four options (has {len(question.options)}).",
-                )
 
-            if question.correctAnswer not in question.options:
-                matched_option = None
-                correct_lower = question.correctAnswer.lower()
-                for option in question.options:
-                    option_lower = option.lower()
-                    if correct_lower in option_lower or option_lower in correct_lower:
-                        matched_option = option
-                        break
 
-                if matched_option:
-                    logger.warning(
-                        "Question %d: Fuzzy matched correctAnswer '%s' to option '%s'",
-                        idx,
-                        question.correctAnswer,
-                        matched_option,
-                    )
-                    question.correctAnswer = matched_option
-                else:
-                    logger.error(
-                        "Question %d correctAnswer '%s' not in options: %s",
-                        idx,
-                        question.correctAnswer,
-                        question.options,
-                    )
-                    raise HTTPException(
-                        status_code=status.HTTP_502_BAD_GATEWAY,
-                        detail=f"Generated exam question {idx+1} has a correctAnswer that is not one of the options.",
-                    )
-        return questions
 
+    # ------------------------------------------------------------------
+    # Internal generation helpers
+    # ------------------------------------------------------------------
     def _maybe_generate_structured(self, prompt: str, response_model: Any, max_new_tokens: int, temperature: float = 0.7):
         if not self._text_client.supports_structured_output:
             return None
@@ -258,9 +222,6 @@ class StudyBuddyService:
             except HTTPException:
                 raise first_error
 
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
     def _safe_generate(
         self,
         prompt: str,

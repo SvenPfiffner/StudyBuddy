@@ -1,4 +1,5 @@
 import re
+from fastapi import HTTPException, status
 
 def fix_markdown(markdown: str) -> str:
     """
@@ -105,3 +106,29 @@ def fix_markdown(markdown: str) -> str:
     # Clean up excessive whitespace (more than 2 blank lines)
     markdown = re.sub(r'\n{3,}', '\n\n', markdown.strip())
     return markdown
+
+def validate_exam_questions(questions):
+    for idx, question in enumerate(questions):
+        if len(question.options) != 4:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Generated exam question {idx+1} does not have exactly four options (has {len(question.options)}).",
+            )
+
+        if question.correctAnswer not in question.options:
+            matched_option = None
+            correct_lower = question.correctAnswer.lower()
+            for option in question.options:
+                option_lower = option.lower()
+                if correct_lower in option_lower or option_lower in correct_lower:
+                    matched_option = option
+                    break
+
+            if matched_option:
+                question.correctAnswer = matched_option
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=f"Generated exam question {idx+1} has a correctAnswer that is not one of the options.",
+                )
+    return questions
