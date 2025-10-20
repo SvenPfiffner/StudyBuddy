@@ -150,7 +150,7 @@ This is a hobby project built for fun and learning, so don't be shy - all skill 
 
 ## Citation 📄
 
-If you use StudyBuddy in academic work, research, or commercial projects, please provide attribution:
+If you use StudyBuddy in academic work, research etc., please provide attribution:
 
 ```
 StudyBuddy AI - An open-source AI-powered study companion
