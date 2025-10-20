@@ -4,10 +4,9 @@ from dataclasses import dataclass
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
-from instructor import Mode, from_hf_pipeline
 
-from aiservices.textgenerationclient import TextGenerationClient
-from config import Settings, get_settings
+from .textgenerationclient import TextGenerationClient
+from ..config import Settings, get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -63,25 +62,13 @@ class LocalTextGenerationClient(TextGenerationClient):
             return_full_text=False,
         )
 
-        self._structured_pipeline = None
-        if from_hf_pipeline and Mode:
-            try:
-                # Use JSON_SIMPLE mode for more reliable structured output with local models
-                # This mode is more forgiving and works better with smaller models
-                self._structured_pipeline = from_hf_pipeline(
-                    self._pipeline,
-                    mode=Mode.JSON_SIMPLE if hasattr(Mode, 'JSON_SIMPLE') else Mode.JSON,
-                )
-            except Exception as exc:  # pragma: no cover - depends on optional package
-                logger.warning("Instructor structured output disabled: %s", exc)
-
         # Some models (e.g. Mistral) lack an explicit pad token, so align with EOS.
         if self._pipeline.tokenizer.pad_token_id is None:
             self._pipeline.tokenizer.pad_token_id = self._pipeline.tokenizer.eos_token_id
 
     @property
     def supports_structured_output(self) -> bool:
-        return self._structured_pipeline is not None
+        return False
 
     def generate(
         self,
@@ -113,27 +100,5 @@ class LocalTextGenerationClient(TextGenerationClient):
         max_new_tokens: int | None = None,
         temperature: float | None = None,
     ) -> None:
-        if not self.supports_structured_output:
-            raise RuntimeError("Structured generation is not available (Instructor not initialized).")
-
-        settings = self.settings
-        temperature = temperature if temperature is not None else settings.temperature
-        max_new_tokens = max_new_tokens if max_new_tokens is not None else settings.max_new_tokens
-
-        do_sample = temperature > 0
-        generation_kwargs = {
-            "max_new_tokens": max_new_tokens,
-            "do_sample": do_sample,
-            "temperature": temperature if do_sample else None,
-            "top_p": 0.9 if do_sample else None,
-            "repetition_penalty": 1.1,
-            "eos_token_id": self._pipeline.tokenizer.eos_token_id,
-        }
-        # Remove None values to avoid overriding defaults
-        generation_kwargs = {k: v for k, v in generation_kwargs.items() if v is not None}
-
-        return self._structured_pipeline(  # type: ignore[call-arg]
-            prompt,
-            response_model=response_model,
-            **generation_kwargs,
-        )
+        
+        raise RuntimeError("Structured generation is not available with the local text generation client.")

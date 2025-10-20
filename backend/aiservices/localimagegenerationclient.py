@@ -1,36 +1,13 @@
-"""Utilities for loading and interacting with local AI models."""
-
-from __future__ import annotations
-
+from typing import Optional
 import base64
 import io
-import logging
-from dataclasses import dataclass
-from typing import Any, Optional
 
 import torch
 from diffusers import AutoPipelineForText2Image
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
-try:
-    from instructor import Mode, from_hf_pipeline
-except Exception:  # pragma: no cover - optional dependency
-    Mode = None  # type: ignore[assignment]
-    from_hf_pipeline = None  # type: ignore[assignment]
+from ..config import Settings, get_settings
 
-from .config import Settings, get_settings
-
-logger = logging.getLogger(__name__)
-
-
-@dataclass
-class GenerationResult:
-    """Container describing generated text."""
-
-    text: str
-
-
-class ImageGenerationClient:
+class LocalImageGenerationClient():
     """Wrapper around a Diffusers Stable Diffusion pipeline."""
 
     def __init__(self, settings: Optional[Settings] = None) -> None:
