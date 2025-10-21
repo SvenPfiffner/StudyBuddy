@@ -2,7 +2,7 @@ import sqlite3
 import threading
 from typing import Iterable, List, Optional, Sequence, Tuple, Union, Dict, Any
 
-from schemas import (
+from ..schemas import (
     Flashcard,
     ExamQuestion
 )

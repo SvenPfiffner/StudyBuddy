@@ -67,6 +67,14 @@ async def flashcards(
     payload: ProjectRequest,
     service: StorageService = Depends(get_database_service),
 ):
+    document_ids = await run_in_threadpool(service.list_documents, payload.project_id)
+
+    flashcards = []
+    for doc_id in document_ids:
+        doc_flashcards = await run_in_threadpool(service.list_flashcards, doc_id)
+        flashcards.extend(doc_flashcards)
+    
+    return FlashcardResponse(flashcards)
 
 
 @app.post("/practice-exam",
@@ -76,7 +84,14 @@ async def practice_exam(
     payload: ProjectRequest,
     service: StorageService = Depends(get_database_service),
 ):
-    # TODO: Get practice exam questions based on project ID from storageService
+    document_ids = await run_in_threadpool(service.list_documents, payload.project_id)
+
+    exam_questions = []
+    for doc_id in document_ids:
+        doc_exam_questions = await run_in_threadpool(service.list_exam_questions, doc_id)
+        exam_questions.extend(doc_exam_questions)
+
+    return ExamResponse(exam_questions)
 
 
 @app.post("/summary-with-images",
@@ -87,6 +102,7 @@ async def summary_with_images(
     service: StorageService = Depends(get_database_service),
 ):
     # TODO: Get summary with images based on project ID from storageService
+    pass
 
 
 @app.post("/chat",
