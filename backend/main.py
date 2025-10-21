@@ -23,7 +23,9 @@ from .schemas import (
     SummaryResponse,
     ProjectRequest,
     GenerateResponse,
-    Project
+    Project,
+    AddDocumentRequest,
+    AddDocumentResponse
 )
 from .service import StudyBuddyService, get_studybuddy_service
 
@@ -124,6 +126,26 @@ async def chat(
     except HTTPException:
         raise
     return ChatResponse(message=reply)
+
+
+@app.post("/add_document",
+          response_model=AddDocumentResponse,
+          summary="Add a document to a project")
+async def add_document(
+    payload: AddDocumentRequest,
+    service: StorageService = Depends(get_database_service),
+):
+    document_id = await run_in_threadpool(
+        service.create_document,
+        payload.project_id,
+        payload.title,
+        payload.content
+    )
+    
+    return AddDocumentResponse(
+        document_id=document_id,
+        message=f"Document '{payload.title}' successfully added to project {payload.project_id}"
+    )
 
 
 __all__ = ["app"]

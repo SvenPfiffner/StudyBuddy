@@ -76,3 +76,12 @@ class ProjectRequest(BaseModel):
 
 class GenerateResponse(BaseModel):
     status: str = Field(..., description="Status of the generation request")
+
+class AddDocumentRequest(BaseModel):
+    project_id: int = Field(..., description="ID of the project to add the document to")
+    title: str = Field(..., description="Title of the document")
+    content: str = Field(..., description="Content of the document")
+
+class AddDocumentResponse(BaseModel):
+    document_id: int = Field(..., description="ID of the created document")
+    message: str = Field(..., description="Success message")
