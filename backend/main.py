@@ -7,7 +7,7 @@ os.environ.setdefault("VLLM_WORKER_MULTIPROC_METHOD", "spawn")
 
 import logging
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
 
@@ -58,11 +58,64 @@ async def healthcheck():
           summary="Generate content based on a project ID")
 async def generate_content(
     payload: ProjectRequest,
-    service: StudyBuddyService = Depends(get_studybuddy_service),
+    studybuddy_service: StudyBuddyService = Depends(get_studybuddy_service),
+    storage_service: StorageService = Depends(get_database_service),
 ):
-    pass
-    #TODO: Implement this endpoint. It should generate a summary, flashcards and a set of exam questions
-    # based on the documents in payload.project_id (querry the database).
+    # Get all documents for the project
+    document_ids = await run_in_threadpool(storage_service.list_documents, payload.project_id)
+    
+    if not document_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No documents found for project {payload.project_id}"
+        )
+    
+    # Generate content for each document individually
+    for doc_id in document_ids:
+        doc = await run_in_threadpool(storage_service.get_document, doc_id)
+        if not doc:
+            continue
+        
+        doc_content = doc['content']
+        
+        # Generate flashcards for this document
+        flashcards = await run_in_threadpool(studybuddy_service.generate_flashcards, doc_content)
+        for flashcard in flashcards:
+            await run_in_threadpool(
+                storage_service.add_flashcard,
+                doc_id,
+                flashcard.question,
+                flashcard.answer
+            )
+        
+        # Generate exam questions for this document
+        exam_questions = await run_in_threadpool(studybuddy_service.generate_practice_exam, doc_content)
+        for question in exam_questions:
+            # Ensure we have exactly 4 options
+            if len(question.options) >= 4:
+                await run_in_threadpool(
+                    storage_service.add_exam_question,
+                    doc_id,
+                    question.question,
+                    question.options[0],
+                    question.options[1],
+                    question.options[2],
+                    question.options[3],
+                    question.correctAnswer
+                )
+    
+    # Generate summary with images from all documents combined
+    all_content = []
+    for doc_id in document_ids:
+        doc = await run_in_threadpool(storage_service.get_document, doc_id)
+        if doc:
+            all_content.append(f"# {doc['title']}\n\n{doc['content']}")
+    
+    combined_content = "\n\n---\n\n".join(all_content)
+    summary = await run_in_threadpool(studybuddy_service.generate_summary_with_images, combined_content)
+    await run_in_threadpool(storage_service.update_project_summary, payload.project_id, summary)
+    
+    return GenerateResponse(status="success")
 
 
 @app.post("/flashcards",
