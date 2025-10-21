@@ -119,6 +119,14 @@ By default, the frontend expects the backend at `http://localhost:8000`. If your
    const API_BASE_URL = 'http://your-backend-ip:8000';
    ```
 
+If you just want to run StudyBuddy locally and not worry about front- and backend management, you can just do
+
+```bash
+# From the project root
+./run_fullstack.sh
+```
+This will automatically set both components up, connect them, and give you an access link to the application
+
 **⚠️ Security Disclaimer:**
 
 This backend has **no authentication, rate limiting, or API keys**. It's designed for local, personal use. If you expose it to the internet:
