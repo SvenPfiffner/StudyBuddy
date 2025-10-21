@@ -58,7 +58,9 @@ async def generate_content(
     payload: ProjectRequest,
     service: StudyBuddyService = Depends(get_studybuddy_service),
 ):
-    pass #TODO: Implement this endpoint
+    pass
+    #TODO: Implement this endpoint. It should generate a summary, flashcards and a set of exam questions
+    # based on the documents in payload.project_id (querry the database).
 
 
 @app.post("/flashcards",
