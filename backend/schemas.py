@@ -11,11 +11,16 @@ class Flashcard(BaseModel):
     question: str = Field(..., description="Front of the flashcard")
     answer: str = Field(..., description="Back of the flashcard")
 
+class FlashcardList(BaseModel):
+    flashcards: List[Flashcard] = Field(..., description="List of flashcards")
 
 class ExamQuestion(BaseModel):
     question: str
     options: List[str]
     correctAnswer: str
+
+class ExamQuestionList(BaseModel):
+    questions: List[ExamQuestion] = Field(..., description="List of exam questions")
 
 
 class ScriptRequest(BaseModel):

@@ -65,7 +65,7 @@ class Settings(BaseSettings):
         description="Sampling temperature applied to the LLM.",
     )
     enable_image_generation: bool = Field(
-        default=True,
+        default=False,
         description="Disable to skip image creation while still returning a textual summary.",
     )
 

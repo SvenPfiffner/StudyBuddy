@@ -1,3 +1,11 @@
+"""
+This client uses a local language model for text generation using the
+Hugging Face Transformers library. It does not natively support structured output generation and
+is therefore considered legacy. For local text generation, use the VLLMTextGenerationClient.
+
+This file will be removed in future versions.
+"""
+
 from typing import Any, Optional
 import logging
 from dataclasses import dataclass
