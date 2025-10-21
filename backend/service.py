@@ -104,8 +104,13 @@ class StudyBuddyService:
     # ------------------------------------------------------------------
     def generate_summary_with_images(self, script_content: str) -> str:
         prompt = get_generate_summary_prompt(script_content)
-        # Use lower temperature for more consistent formatting
-        result = self._safe_generate(prompt, max_new_tokens=1024, temperature=0.3)
+        # Generate with lower temperature for more factual output
+        result = self._text_client.generate(
+            prompt=prompt,
+            max_new_tokens=1024,
+            temperature=0.3,
+        )
+        
         markdown = result.text
 
         markdown = fix_markdown(markdown)
