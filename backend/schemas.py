@@ -26,6 +26,10 @@ class ExamQuestionList(BaseModel):
 class ScriptRequest(BaseModel):
     scriptContent: str = Field(..., description="Concatenated project files")
 
+class Project(BaseModel):
+    name: str = Field(..., description="Name of the project")
+    summary: str = Field(..., description="Summary of the project")
+
 
 # ---- RootModel wrappers (v2 way to do `__root__`) ----
 class FlashcardResponse(RootModel[List[Flashcard]]):

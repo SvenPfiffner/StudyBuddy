@@ -23,6 +23,7 @@ from .schemas import (
     SummaryResponse,
     ProjectRequest,
     GenerateResponse,
+    Project
 )
 from .service import StudyBuddyService, get_studybuddy_service
 
@@ -101,8 +102,10 @@ async def summary_with_images(
     payload: ProjectRequest,
     service: StorageService = Depends(get_database_service),
 ):
-    # TODO: Get summary with images based on project ID from storageService
-    pass
+    project_overview = await run_in_threadpool(service.get_project_overview, payload.project_id)
+
+    return SummaryResponse(summary=project_overview.summary)
+
 
 
 @app.post("/chat",

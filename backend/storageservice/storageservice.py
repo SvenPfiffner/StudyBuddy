@@ -4,7 +4,8 @@ from typing import Iterable, List, Optional, Sequence, Tuple, Union, Dict, Any
 
 from ..schemas import (
     Flashcard,
-    ExamQuestion
+    ExamQuestion,
+    Project
 )
 
 Row = sqlite3.Row
@@ -239,11 +240,15 @@ class StorageService:
             (user_id,)
         )
 
-    def get_project_overview(self, project_id: int) -> Optional[Row]:
-        return self._one(
-            "SELECT * FROM v_project_overview WHERE project_id = ?",
+    def get_project_overview(self, project_id: int) -> Optional[Project]:
+        row = self._one(
+            "SELECT name, summary FROM projects WHERE id = ?",
             (project_id,)
         )
+
+        if row:
+            return Project(name=row["name"], summary=row["summary"] or "")
+        return None
 
     def delete_project(self, project_id: int) -> None:
         self.connection.execute("DELETE FROM projects WHERE id = ?", (project_id,))
