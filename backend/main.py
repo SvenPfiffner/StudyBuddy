@@ -65,8 +65,11 @@ async def flashcards(
     payload: ProjectRequest,
     service: StudyBuddyService = Depends(get_service),
 ):
-    items = await run_in_threadpool(service.generate_flashcards, payload.scriptContent)
-    return items
+    document_ids = service.list_documents(payload.project_id)
+
+    flashcards = [flashcard for doc_id in document_ids for flashcard in service.list_flashcards(doc_id)]
+    return FlashcardResponse(flashcards=flashcards)
+    
 
 
 @app.post("/practice-exam",

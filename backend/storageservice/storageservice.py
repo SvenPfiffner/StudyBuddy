@@ -1,6 +1,11 @@
 import sqlite3
 from typing import Iterable, List, Optional, Sequence, Tuple, Union, Dict, Any
 
+from schemas import (
+    Flashcard,
+    ExamQuestion
+)
+
 Row = sqlite3.Row
 
 SCHEMA_VERSION = 1
@@ -270,10 +275,13 @@ class StorageService:
         return self._one("SELECT * FROM documents WHERE id = ?", (document_id,))
 
     def list_documents(self, project_id: int) -> List[Row]:
-        return self._all(
+        rows = self._all(
             "SELECT * FROM documents WHERE project_id = ? ORDER BY created_at ASC",
             (project_id,)
         )
+
+        row_ids = [row["id"] for row in rows]
+        return row_ids
 
     def delete_document(self, document_id: int) -> None:
         self.connection.execute("DELETE FROM documents WHERE id = ?", (document_id,))
@@ -357,10 +365,19 @@ class StorageService:
         return cur.lastrowid
 
     def list_flashcards(self, document_id: int) -> List[Row]:
-        return self._all(
+        rows = self._all(
             "SELECT * FROM flashcards WHERE document_id = ? ORDER BY created_at ASC",
             (document_id,)
         )
+
+        flashcards = [
+            Flashcard(
+                question=row["front"],
+                answer=row["back"]
+            ) for row in rows
+        ]
+
+        return flashcards
 
     def delete_flashcard(self, flashcard_id: int) -> None:
         self.connection.execute("DELETE FROM flashcards WHERE id = ?", (flashcard_id,))
@@ -389,10 +406,25 @@ class StorageService:
         return cur.lastrowid
 
     def list_exam_questions(self, document_id: int) -> List[Row]:
-        return self._all(
+        rows = self._all(
             "SELECT * FROM exam_questions WHERE document_id = ? ORDER BY created_at ASC",
             (document_id,)
         )
+
+        exam_questions = [
+            ExamQuestion(
+                question=row["question"],
+                options=[
+                    row["option_a"],
+                    row["option_b"],
+                    row["option_c"],
+                    row["option_d"],
+                ],
+                correctAnswer=row["answer_letter"]
+            ) for row in rows
+        ]
+
+        return exam_questions
 
     def delete_exam_question(self, question_id: int) -> None:
         self.connection.execute("DELETE FROM exam_questions WHERE id = ?", (question_id,))
