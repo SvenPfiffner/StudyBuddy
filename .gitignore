@@ -37,3 +37,6 @@ __pycache__/
 
 # Program logs
 .logs/
+
+# Environment variables file
+.env
