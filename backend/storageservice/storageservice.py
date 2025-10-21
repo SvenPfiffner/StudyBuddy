@@ -418,18 +418,27 @@ class StorageService:
             (document_id,)
         )
 
-        exam_questions = [
-            ExamQuestion(
-                question=row["question"],
-                options=[
-                    row["option_a"],
-                    row["option_b"],
-                    row["option_c"],
-                    row["option_d"],
-                ],
-                correctAnswer=row["answer_letter"]
-            ) for row in rows
-        ]
+        exam_questions = []
+        for row in rows:
+            options = [
+                row["option_a"],
+                row["option_b"],
+                row["option_c"],
+                row["option_d"],
+            ]
+            
+            # Map letter (A, B, C, D) to the actual answer text
+            answer_letter = row["answer_letter"].upper()
+            letter_to_index = {"A": 0, "B": 1, "C": 2, "D": 3}
+            correct_answer_text = options[letter_to_index.get(answer_letter, 0)]
+            
+            exam_questions.append(
+                ExamQuestion(
+                    question=row["question"],
+                    options=options,
+                    correctAnswer=correct_answer_text
+                )
+            )
 
         return exam_questions
 
