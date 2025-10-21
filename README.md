@@ -11,6 +11,9 @@
   <img src="https://github.com/SvenPfiffner/StudyBuddy/blob/main/data/screenshot_main.png" width="600">
 </p>
 
+- [FAQ](ttps://github.com/SvenPfiffner/StudyBuddy/blob/main/FAQ.md)
+- [Changelog](https://github.com/SvenPfiffner/StudyBuddy/blob/main/CHANGELOG.md)
+
 ## Use Cases
 
 - **Summary** 📝: Generate comprehensive, well-structured Markdown summaries of your study materials, complete with AI-generated diagrams and illustrations. The AI identifies key concepts that benefit from visual aids and creates custom images on-the-fly to enhance understanding. Perfect for condensing dense textbooks or lecture notes into digestible visual guides!
@@ -52,29 +55,19 @@ pip install -r requirements.txt
 
 ```bash
 # From the project root
-.venv/bin/python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
+./run_backend.sh
+
+# Alternatively if you want to change the ip or port
+./run_backend.sh --host <HOST> --port <PORT>
 ```
 
-The API will be available at `http://localhost:8000`. Check `http://localhost:8000/health` to verify it's running!
+The API will be available at `http://localhost:8000` (Or your specified host/port). Check `<HOST>:<PORT>/health` to verify it's running!
 
 ### ⚙️ Configuration Options
 
-You can customize the AI models via environment variables or a `.env` file in the `backend/` directory:
+You can customize the AI models via environment variables or a `.env` file in the `backend/` directory
 
-```bash
-# Text generation model (for flashcards, exams, summaries, chat)
-STUDYBUDDY_TEXT_MODEL_ID=meta-llama/Llama-3.1-8B-Instruct
-
-# Image generation model (for summary diagrams)
-STUDYBUDDY_IMAGE_MODEL_ID=stabilityai/sdxl-turbo
-
-# Generation parameters
-STUDYBUDDY_MAX_NEW_TOKENS=512
-STUDYBUDDY_TEMPERATURE=0.7
-
-# Disable image generation to save VRAM
-STUDYBUDDY_ENABLE_IMAGE_GENERATION=true
-```
+``backend/.env.example`` provides a skeleton you can copy and rename to ``.env``. All settings are explained in detail there.
 
 **🎯 Model Recommendations:**
 
@@ -110,7 +103,8 @@ npm install
 **Running the Dev Server:**
 
 ```bash
-npm run dev
+# From the project root
+./run_frontend.sh
 ```
 
 The app will be available at `http://localhost:5173` (or the port shown in your terminal).
@@ -124,6 +118,14 @@ By default, the frontend expects the backend at `http://localhost:8000`. If your
    ```typescript
    const API_BASE_URL = 'http://your-backend-ip:8000';
    ```
+
+If you just want to run StudyBuddy locally and not worry about front- and backend management, you can just do
+
+```bash
+# From the project root
+./run_fullstack.sh
+```
+This will automatically set both components up, connect them, and give you an access link to the application
 
 **⚠️ Security Disclaimer:**
 
