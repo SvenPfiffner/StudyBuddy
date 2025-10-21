@@ -85,3 +85,11 @@ class AddDocumentRequest(BaseModel):
 class AddDocumentResponse(BaseModel):
     document_id: int = Field(..., description="ID of the created document")
     message: str = Field(..., description="Success message")
+
+class CreateProjectRequest(BaseModel):
+    user_id: int = Field(..., description="ID of the user creating the project")
+    name: str = Field(..., description="Name of the project")
+
+class CreateProjectResponse(BaseModel):
+    project_id: int = Field(..., description="ID of the created project")
+    message: str = Field(..., description="Success message")

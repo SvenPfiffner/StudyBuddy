@@ -25,7 +25,9 @@ from .schemas import (
     GenerateResponse,
     Project,
     AddDocumentRequest,
-    AddDocumentResponse
+    AddDocumentResponse,
+    CreateProjectRequest,
+    CreateProjectResponse
 )
 from .service import StudyBuddyService, get_studybuddy_service
 
@@ -198,6 +200,26 @@ async def add_document(
     return AddDocumentResponse(
         document_id=document_id,
         message=f"Document '{payload.title}' successfully added to project {payload.project_id}"
+    )
+
+
+@app.post("/create_project",
+          response_model=CreateProjectResponse,
+          summary="Create a new project")
+async def create_project(
+    payload: CreateProjectRequest,
+    service: StorageService = Depends(get_database_service),
+):
+    project_id = await run_in_threadpool(
+        service.create_project,
+        payload.user_id,
+        payload.name,
+        ""  # Empty summary
+    )
+    
+    return CreateProjectResponse(
+        project_id=project_id,
+        message=f"Project '{payload.name}' successfully created"
     )
 
 
