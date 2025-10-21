@@ -55,10 +55,13 @@ pip install -r requirements.txt
 
 ```bash
 # From the project root
-.venv/bin/python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
+./run_backend.sh
+
+# Alternatively if you want to change the ip or port
+./run_backend.sh --host <HOST> --port <PORT>
 ```
 
-The API will be available at `http://localhost:8000`. Check `http://localhost:8000/health` to verify it's running!
+The API will be available at `http://localhost:8000` (Or your specified host/port). Check `<HOST>:<PORT>/health` to verify it's running!
 
 ### ⚙️ Configuration Options
 
@@ -100,7 +103,8 @@ npm install
 **Running the Dev Server:**
 
 ```bash
-npm run dev
+# From the project root
+./run_frontend.sh
 ```
 
 The app will be available at `http://localhost:5173` (or the port shown in your terminal).
