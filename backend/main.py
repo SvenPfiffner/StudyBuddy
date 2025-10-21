@@ -21,6 +21,8 @@ from .schemas import (
     ImageResponse,
     ScriptRequest,
     SummaryResponse,
+    ProjectRequest,
+    GenerateResponse,
 )
 from .service import StudyBuddyService, get_service
 
@@ -37,7 +39,7 @@ app.add_middleware(
 )
 
 
-@app.get("/health")
+@app.get("/health", summary="Health Check Endpoint")
 async def healthcheck():
     settings = get_settings()
     return {
@@ -46,19 +48,32 @@ async def healthcheck():
         "imageModel": settings.image_model_id if settings.enable_image_generation else None,
     }
 
+@app.post("/generate",
+          response_model=GenerateResponse,
+          summary="Generate content based on a project ID")
+async def generate_content(
+    payload: ProjectRequest,
+    service: StudyBuddyService = Depends(get_service),
+):
+    pass #TODO: Implement this endpoint
 
-@app.post("/flashcards", response_model=FlashcardResponse)
+
+@app.post("/flashcards",
+          response_model=FlashcardResponse,
+          summary="Get all flashcards for a project")
 async def flashcards(
-    payload: ScriptRequest,
+    payload: ProjectRequest,
     service: StudyBuddyService = Depends(get_service),
 ):
     items = await run_in_threadpool(service.generate_flashcards, payload.scriptContent)
     return items
 
 
-@app.post("/practice-exam", response_model=ExamResponse)
+@app.post("/practice-exam",
+          response_model=ExamResponse,
+          summary="Get all practice exam questions for a project")
 async def practice_exam(
-    payload: ScriptRequest,
+    payload: ProjectRequest,
     service: StudyBuddyService = Depends(get_service),
 ):
     questions = await run_in_threadpool(service.generate_practice_exam, payload.scriptContent)
@@ -66,9 +81,11 @@ async def practice_exam(
     return questions
 
 
-@app.post("/summary-with-images", response_model=SummaryResponse)
+@app.post("/summary-with-images",
+          response_model=SummaryResponse,
+          summary="Get a summary with images for a project")
 async def summary_with_images(
-    payload: ScriptRequest,
+    payload: ProjectRequest,
     service: StudyBuddyService = Depends(get_service),
 ):
     summary = await run_in_threadpool(service.generate_summary_with_images, payload.scriptContent)
@@ -76,7 +93,9 @@ async def summary_with_images(
     return SummaryResponse(summary=summary)
 
 
-@app.post("/chat", response_model=ChatResponse)
+@app.post("/chat",
+          response_model=ChatResponse,
+          summary="Continue a chat conversation")
 async def chat(
     payload: ChatRequest,
     service: StudyBuddyService = Depends(get_service),
@@ -88,16 +107,6 @@ async def chat(
     except HTTPException:
         raise
     return ChatResponse(message=reply)
-
-
-@app.post("/generate-image", response_model=ImageResponse)
-async def generate_image(
-    payload: ImageRequest,
-    service: StudyBuddyService = Depends(get_service),
-):
-    image_b64 = await run_in_threadpool(service.generate_image, payload.prompt)
-
-    return ImageResponse(image=image_b64)
 
 
 __all__ = ["app"]

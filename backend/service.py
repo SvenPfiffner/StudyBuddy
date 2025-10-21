@@ -28,17 +28,15 @@ from .schemas import (
     ChatMessage,
     ExamQuestion,
     ExamQuestionList,
-    ExamResponse,
     Flashcard,
     FlashcardList,
-    FlashcardResponse,
 )
 
 logger = logging.getLogger(__name__)
 
 
 class StudyBuddyService:
-    """High-level orchestrator for all API endpoints."""
+    """High-level orchestrator for the generative AI services."""
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()

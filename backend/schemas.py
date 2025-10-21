@@ -66,3 +66,9 @@ class ImageRequest(BaseModel):
 
 class ImageResponse(BaseModel):
     image: str = Field(..., description="Base64-encoded JPEG image")
+
+class ProjectRequest(BaseModel):
+    project_id: int = Field(..., description="ID of the project to consider in this request.")
+
+class GenerateResponse(BaseModel):
+    status: str = Field(..., description="Status of the generation request")
