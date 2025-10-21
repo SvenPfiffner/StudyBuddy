@@ -221,5 +221,5 @@ class StudyBuddyService:
 
 
 @lru_cache
-def get_service() -> StudyBuddyService:
+def get_studybuddy_service() -> StudyBuddyService:
     return StudyBuddyService(get_settings())

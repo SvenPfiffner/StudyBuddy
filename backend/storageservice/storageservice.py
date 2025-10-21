@@ -1,9 +1,11 @@
 import sqlite3
+import threading
 from typing import Iterable, List, Optional, Sequence, Tuple, Union, Dict, Any
 
 Row = sqlite3.Row
 
 SCHEMA_VERSION = 1
+
 
 DDL = """
 PRAGMA foreign_keys = ON;
@@ -440,3 +442,27 @@ class StorageService:
             "SELECT * FROM v_document_with_chunks WHERE project_id = ? ORDER BY title",
             (project_id,)
         )
+    
+_SERVICE: Optional[StorageService] = None
+_SERVICE_LOCK = threading.Lock()
+
+def get_database_service() -> StorageService:
+    """Return a singleton StorageService instance.
+
+    The instance is created lazily on first call and is protected by a
+    module-level lock to be safe in multi-threaded contexts. The database
+    path is relative to the package directory to keep behavior stable when
+    called from different working directories.
+    """
+    global _SERVICE
+    if _SERVICE is not None:
+        return _SERVICE
+    with _SERVICE_LOCK:
+        if _SERVICE is None:
+            # Use a path relative to this file so callers from other working
+            # directories get the same database file.
+            import os
+            base = os.path.dirname(__file__)
+            db_path = os.path.join(base, 'database.db')
+            _SERVICE = StorageService(db_path)
+    return _SERVICE

@@ -24,7 +24,9 @@ from .schemas import (
     ProjectRequest,
     GenerateResponse,
 )
-from .service import StudyBuddyService, get_service
+from .service import StudyBuddyService, get_studybuddy_service
+
+from .storageservice.storageservice import StorageService, get_database_service
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +55,7 @@ async def healthcheck():
           summary="Generate content based on a project ID")
 async def generate_content(
     payload: ProjectRequest,
-    service: StudyBuddyService = Depends(get_service),
+    service: StudyBuddyService = Depends(get_studybuddy_service),
 ):
     pass #TODO: Implement this endpoint
 
@@ -63,10 +65,8 @@ async def generate_content(
           summary="Get all flashcards for a project")
 async def flashcards(
     payload: ProjectRequest,
-    service: StudyBuddyService = Depends(get_service),
+    service: StorageService = Depends(get_database_service),
 ):
-    items = await run_in_threadpool(service.generate_flashcards, payload.scriptContent)
-    return items
 
 
 @app.post("/practice-exam",
@@ -74,11 +74,9 @@ async def flashcards(
           summary="Get all practice exam questions for a project")
 async def practice_exam(
     payload: ProjectRequest,
-    service: StudyBuddyService = Depends(get_service),
+    service: StorageService = Depends(get_database_service),
 ):
-    questions = await run_in_threadpool(service.generate_practice_exam, payload.scriptContent)
-
-    return questions
+    # TODO: Get practice exam questions based on project ID from storageService
 
 
 @app.post("/summary-with-images",
@@ -86,11 +84,9 @@ async def practice_exam(
           summary="Get a summary with images for a project")
 async def summary_with_images(
     payload: ProjectRequest,
-    service: StudyBuddyService = Depends(get_service),
+    service: StorageService = Depends(get_database_service),
 ):
-    summary = await run_in_threadpool(service.generate_summary_with_images, payload.scriptContent)
-
-    return SummaryResponse(summary=summary)
+    # TODO: Get summary with images based on project ID from storageService
 
 
 @app.post("/chat",
@@ -98,7 +94,7 @@ async def summary_with_images(
           summary="Continue a chat conversation")
 async def chat(
     payload: ChatRequest,
-    service: StudyBuddyService = Depends(get_service),
+    service: StudyBuddyService = Depends(get_studybuddy_service),
 ):
     try:
         reply = await run_in_threadpool(
