@@ -59,22 +59,9 @@ The API will be available at `http://localhost:8000`. Check `http://localhost:80
 
 ### ⚙️ Configuration Options
 
-You can customize the AI models via environment variables or a `.env` file in the `backend/` directory:
+You can customize the AI models via environment variables or a `.env` file in the `backend/` directory
 
-```bash
-# Text generation model (for flashcards, exams, summaries, chat)
-STUDYBUDDY_TEXT_MODEL_ID=meta-llama/Llama-3.1-8B-Instruct
-
-# Image generation model (for summary diagrams)
-STUDYBUDDY_IMAGE_MODEL_ID=stabilityai/sdxl-turbo
-
-# Generation parameters
-STUDYBUDDY_MAX_NEW_TOKENS=512
-STUDYBUDDY_TEMPERATURE=0.7
-
-# Disable image generation to save VRAM
-STUDYBUDDY_ENABLE_IMAGE_GENERATION=true
-```
+``backend/.env.example`` provides a skeleton you can copy and rename to ``.env``. All settings are explained in detail there.
 
 **🎯 Model Recommendations:**
 
