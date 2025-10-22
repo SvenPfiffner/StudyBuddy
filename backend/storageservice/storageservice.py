@@ -171,27 +171,45 @@ GROUP BY d.id;
 
 class StorageService:
     def __init__(self, db_path: str):
-        self.connection = sqlite3.connect(db_path)
-        self.connection.execute("PRAGMA foreign_keys = ON;")
-        self.connection.execute("PRAGMA journal_mode = WAL;")
-        self.connection.execute("PRAGMA synchronous = NORMAL;")
-        self.connection.row_factory = sqlite3.Row
-        self.cursor = self.connection.cursor()
-        self._ensure_schema()
+        self.db_path = db_path
+        self._local = threading.local()
+        # Initialize the schema using a temporary connection
+        conn = sqlite3.connect(db_path)
+        conn.execute("PRAGMA foreign_keys = ON;")
+        conn.execute("PRAGMA journal_mode = WAL;")
+        conn.execute("PRAGMA synchronous = NORMAL;")
+        conn.row_factory = sqlite3.Row
+        self._ensure_schema_with_connection(conn)
+        conn.close()
+    
+    @property
+    def connection(self) -> sqlite3.Connection:
+        """Get a thread-local connection to the database."""
+        if not hasattr(self._local, 'connection') or self._local.connection is None:
+            self._local.connection = sqlite3.connect(self.db_path)
+            self._local.connection.execute("PRAGMA foreign_keys = ON;")
+            self._local.connection.execute("PRAGMA journal_mode = WAL;")
+            self._local.connection.execute("PRAGMA synchronous = NORMAL;")
+            self._local.connection.row_factory = sqlite3.Row
+        return self._local.connection
 
     # ---------- internal ----------
-    def _ensure_schema(self) -> None:
-        cur = self.connection.execute("PRAGMA user_version;")
+    def _ensure_schema_with_connection(self, conn: sqlite3.Connection) -> None:
+        """Ensure schema exists using the provided connection."""
+        cur = conn.execute("PRAGMA user_version;")
         version = cur.fetchone()[0]
         if version < 1:
-            self.connection.executescript(DDL)
-            self.connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION};")
-            self.connection.commit()
+            conn.executescript(DDL)
+            conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION};")
+            conn.commit()
         # Future migrations can go here (if version < 2: ...)
 
     def close(self) -> None:
-        self.connection.commit()
-        self.connection.close()
+        """Close the thread-local connection if it exists."""
+        if hasattr(self._local, 'connection') and self._local.connection is not None:
+            self._local.connection.commit()
+            self._local.connection.close()
+            self._local.connection = None
 
     def _one(self, sql: str, params: Sequence[Any] = ()) -> Optional[Row]:
         cur = self.connection.execute(sql, params)
