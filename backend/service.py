@@ -152,6 +152,7 @@ class StudyBuddyService:
     def continue_chat(self, history: List[ChatMessage], system_instruction: str, message: str) -> str:
         conversation = self._render_history(history)
         prompt = get_chat_prompt(system_instruction, message, conversation)
+        print("Prompt for chat continuation:\n", prompt)
         result = self._text_client.generate(prompt, max_new_tokens=512)
         response = result.text
         

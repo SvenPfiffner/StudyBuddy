@@ -143,14 +143,16 @@ def _compress_chat_history(history: Sequence[ChatMessage]) -> List[ChatMessage]:
 
 
 def _build_system_instruction(project_name: str, documents: Sequence[Any]) -> str:
+    print("Building system instruction with documents:", documents)
     rendered_sections: List[str] = []
     remaining = MAX_DOCUMENT_CONTEXT_CHARS
     for doc in documents:
         content = doc["content"]
+        print("Document content:", content)
         if not content:
             continue
-        header = f"--- Start of file: {doc['title']} ---\n"
-        footer = "\n--- End of file: {doc['title']} ---"
+        header = ""
+        footer = ""
         overhead = len(header) + len(footer)
         if remaining <= overhead:
             break
@@ -169,14 +171,7 @@ def _build_system_instruction(project_name: str, documents: Sequence[Any]) -> st
 
     return dedent(
         f"""
-        You are a helpful tutor assisting the user with their project "{project_name}".
-        Answer questions using ONLY the provided project files. If the answer is not present,
-        reply with `I don't have enough information from the provided documents.`
-        ---
-        CONTENT START
         {rendered_documents}
-        CONTENT END
-        ---
         """
     ).strip()
 
@@ -465,22 +460,20 @@ async def chat(
             detail=f"Project {project_id} not found",
         )
 
+    # Get all documents for the project
     documents = await run_in_threadpool(storage_service.list_documents_with_content, project_id)
-    if not documents:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No documents found for project {project_id}",
-        )
 
+    context = "\n\n".join(doc['content'] for doc in documents)
+
+        
     history_rows = await run_in_threadpool(storage_service.list_chat_messages, project_id)
     history_messages = _compress_chat_history([_row_to_chat_message(row) for row in history_rows])
-    system_instruction = _build_system_instruction(project_overview.name, documents)
 
     try:
         reply = await run_in_threadpool(
             studybuddy_service.continue_chat,
             history_messages,
-            system_instruction,
+            context,
             message,
         )
     except HTTPException:
