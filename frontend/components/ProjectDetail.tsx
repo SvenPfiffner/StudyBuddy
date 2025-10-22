@@ -1,18 +1,21 @@
 
 import React from 'react';
-import type { Project } from '../types';
+import type { DocumentMetadata, ProjectSummary } from '../types';
 import FileUpload from './FileUpload';
 import Spinner from './Spinner';
 
 interface ProjectDetailProps {
-  project: Project;
-  onAddFile: (fileName: string, content: string) => void;
-  onDeleteFile: (fileName: string) => void;
+  project: ProjectSummary;
+  documents: DocumentMetadata[];
+  onAddFile: (fileName: string, content: string) => Promise<void> | void;
+  onDeleteFile: (documentId: number) => Promise<void> | void;
   onGenerate: () => void;
   onBack: () => void;
   onViewMaterials: () => void;
   isGenerating: boolean;
   generationMessage: string | null;
+  isLoadingDocuments: boolean;
+  hasStudyMaterials: boolean;
 }
 
 interface FileListItemProps {
@@ -45,9 +48,20 @@ const FileListItem: React.FC<FileListItemProps> = ({ name, onDelete }) => (
 );
 
 
-const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onAddFile, onDeleteFile, onGenerate, onBack, onViewMaterials, isGenerating, generationMessage }) => {
-  const hasMaterials = !!project.flashcards && project.flashcards.length > 0 && !!project.examQuestions && !!project.summary;
-
+const ProjectDetail: React.FC<ProjectDetailProps> = ({
+  project,
+  documents,
+  onAddFile,
+  onDeleteFile,
+  onGenerate,
+  onBack,
+  onViewMaterials,
+  isGenerating,
+  generationMessage,
+  isLoadingDocuments,
+  hasStudyMaterials,
+}) => {
+  
   return (
     <div className="w-full max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-8">
@@ -56,7 +70,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onAddFile, onDel
           <h2 className="text-3xl font-bold text-white">{project.name}</h2>
         </div>
         <div className="flex items-center gap-4">
-          {hasMaterials && !isGenerating && (
+          {hasStudyMaterials && !isGenerating && (
              <button
                 onClick={onViewMaterials}
                 className="px-6 py-3 border border-gray-600 hover:bg-gray-700 text-gray-300 font-semibold rounded-lg transition-colors"
@@ -66,37 +80,43 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onAddFile, onDel
           )}
           <button
               onClick={onGenerate}
-              disabled={project.files.length === 0 || isGenerating}
+              disabled={documents.length === 0 || isGenerating}
               className="flex items-center justify-center px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold rounded-lg shadow-md transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed min-w-[220px]"
           >
               {isGenerating ? (
                 <>
-                    <Spinner /> 
+                    <Spinner />
                     <span className="ml-3">{generationMessage || 'Generating...'}</span>
                 </>
-              ) : (hasMaterials ? 'Regenerate Materials' : 'Generate Study Materials')}
+              ) : (hasStudyMaterials ? 'Regenerate Materials' : 'Generate Study Materials')}
           </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div>
-          <h3 className="text-xl font-semibold text-white mb-4">Project Files ({project.files.length})</h3>
+          <h3 className="text-xl font-semibold text-white mb-4">Project Files ({documents.length})</h3>
           <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-            {project.files.length > 0 ? (
-                project.files.map((file) => <FileListItem key={file.name} name={file.name} onDelete={() => onDeleteFile(file.name)} />)
+            {isLoadingDocuments ? (
+              <div className="flex items-center justify-center py-10">
+                <Spinner />
+              </div>
+            ) : documents.length > 0 ? (
+              documents.map((file) => (
+                <FileListItem key={file.id} name={file.title} onDelete={() => onDeleteFile(file.id)} />
+              ))
             ) : (
-                <div className="text-center py-10 px-6 bg-gray-800/50 rounded-lg border border-dashed border-gray-600">
-                    <p className="text-gray-400">This project is empty.</p>
-                    <p className="text-gray-500 mt-1">Upload a file to get started!</p>
-                </div>
+              <div className="text-center py-10 px-6 bg-gray-800/50 rounded-lg border border-dashed border-gray-600">
+                  <p className="text-gray-400">This project is empty.</p>
+                  <p className="text-gray-500 mt-1">Upload a file to get started!</p>
+              </div>
             )}
           </div>
         </div>
 
         <div>
            <h3 className="text-xl font-semibold text-white mb-4">Add New File</h3>
-           <FileUpload onFileUpload={onAddFile} isLoading={isGenerating} />
+           <FileUpload onFileUpload={onAddFile} isLoading={isGenerating || isLoadingDocuments} />
         </div>
       </div>
     </div>

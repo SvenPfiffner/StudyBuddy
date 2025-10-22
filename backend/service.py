@@ -28,17 +28,15 @@ from .schemas import (
     ChatMessage,
     ExamQuestion,
     ExamQuestionList,
-    ExamResponse,
     Flashcard,
     FlashcardList,
-    FlashcardResponse,
 )
 
 logger = logging.getLogger(__name__)
 
 
 class StudyBuddyService:
-    """High-level orchestrator for all API endpoints."""
+    """High-level orchestrator for the generative AI services."""
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
@@ -93,7 +91,7 @@ class StudyBuddyService:
                 else:  # dict-like
                     data = ExamQuestionList.model_validate(structured)
 
-                return data.questions
+                return validate_exam_questions(data.questions)
             except Exception as exc:
                 logger.warning("Failed to parse structured exam questions: %s", exc)
 
@@ -154,6 +152,7 @@ class StudyBuddyService:
     def continue_chat(self, history: List[ChatMessage], system_instruction: str, message: str) -> str:
         conversation = self._render_history(history)
         prompt = get_chat_prompt(system_instruction, message, conversation)
+        print("Prompt for chat continuation:\n", prompt)
         result = self._text_client.generate(prompt, max_new_tokens=512)
         response = result.text
         
@@ -170,6 +169,37 @@ class StudyBuddyService:
         
         response = self._strip_hallucinated_turns(response)
         return response.strip()
+
+    def continue_chat_conversational(self, history: List[ChatMessage], context: str, message: str) -> str:
+        """
+        Use vLLM's conversational API for more robust multi-turn conversations.
+        
+        Args:
+            history: List of ChatMessage objects with role and parts
+            context: Document content to use as context
+            message: The new user message
+            
+        Returns:
+            The assistant's response text
+        """
+        # Convert ChatMessage format to dict format expected by generate_conversational
+        conversation_messages = []
+        for chat_msg in history:
+            # Extract text from parts
+            content = " ".join(part.text for part in chat_msg.parts)
+            # Map "model" role back to "assistant" for the conversational API
+            role = "assistant" if chat_msg.role == "model" else chat_msg.role
+            if role in {"user", "assistant"}:
+                conversation_messages.append({"role": role, "content": content})
+        
+        result = self._text_client.generate_conversational(
+            context=context,
+            conversation_messages=conversation_messages,
+            user_message=message,
+            max_new_tokens=512,
+            temperature=0.25,
+        )
+        return result.text
 
 
 
@@ -223,5 +253,5 @@ class StudyBuddyService:
 
 
 @lru_cache
-def get_service() -> StudyBuddyService:
+def get_studybuddy_service() -> StudyBuddyService:
     return StudyBuddyService(get_settings())

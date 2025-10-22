@@ -22,6 +22,13 @@ const PracticeExam: React.FC<PracticeExamProps> = ({ questions }) => {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [submitted, setSubmitted] = useState(false);
 
+  const getCorrectOption = (question: ExamQuestion): string => {
+    const letterToIndex: Record<string, number> = { A: 0, B: 1, C: 2, D: 3 };
+    const letter = question.correctAnswer.toUpperCase();
+    const index = letterToIndex[letter] ?? 0;
+    return question.options[index];
+  };
+
   const handleAnswerChange = (questionIndex: number, answer: string) => {
     setAnswers({ ...answers, [questionIndex]: answer });
   };
@@ -38,7 +45,7 @@ const PracticeExam: React.FC<PracticeExamProps> = ({ questions }) => {
 
   const score = Object.keys(answers).reduce((acc, key) => {
     const qIndex = parseInt(key, 10);
-    if (questions[qIndex].correctAnswer === answers[qIndex]) {
+    if (getCorrectOption(questions[qIndex]) === answers[qIndex]) {
       return acc + 1;
     }
     return acc;
@@ -63,7 +70,7 @@ const PracticeExam: React.FC<PracticeExamProps> = ({ questions }) => {
             <div className="space-y-3">
               {q.options.map((option, oIndex) => {
                 const isSelected = answers[qIndex] === option;
-                const isCorrect = q.correctAnswer === option;
+                const isCorrect = getCorrectOption(q) === option;
                 let optionClass = "border-gray-600 hover:bg-gray-700";
 
                 if (submitted) {
@@ -94,9 +101,9 @@ const PracticeExam: React.FC<PracticeExamProps> = ({ questions }) => {
                 )
               })}
             </div>
-            {submitted && answers[qIndex] !== q.correctAnswer && (
+            {submitted && answers[qIndex] !== getCorrectOption(q) && (
                 <div className="mt-4 p-3 bg-green-900/30 rounded-md text-green-300">
-                    Correct Answer: {q.correctAnswer}
+                    Correct Answer: {getCorrectOption(q)}
                 </div>
             )}
           </div>
