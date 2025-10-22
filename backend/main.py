@@ -209,6 +209,9 @@ async def generate_content(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No documents found for project {payload.project_id}"
         )
+
+    await run_in_threadpool(storage_service.clear_flashcards_for_project, payload.project_id)
+    await run_in_threadpool(storage_service.clear_exam_questions_for_project, payload.project_id)
     
     # Generate content for each document individually
     for doc_id in document_ids:
@@ -216,7 +219,7 @@ async def generate_content(
         if not doc:
             continue
         
-        doc_content = doc['content']
+        doc_content = f"Document Title: {doc['title']}\n\n{doc['content']}"
         
         # Generate flashcards for this document
         flashcards = await run_in_threadpool(studybuddy_service.generate_flashcards, doc_content)

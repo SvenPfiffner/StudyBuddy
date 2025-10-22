@@ -462,6 +462,14 @@ class StorageService:
         self.connection.execute("DELETE FROM flashcards WHERE id = ?", (flashcard_id,))
         self.connection.commit()
 
+    def clear_flashcards_for_project(self, project_id: int) -> None:
+        """Remove all flashcards linked to the given project."""
+        with self.connection:
+            self.connection.execute(
+                "DELETE FROM flashcards WHERE document_id IN (SELECT id FROM documents WHERE project_id = ?)",
+                (project_id,)
+            )
+
     # ---------- exam questions ----------
     def add_exam_question(
         self,
@@ -512,6 +520,14 @@ class StorageService:
     def delete_exam_question(self, question_id: int) -> None:
         self.connection.execute("DELETE FROM exam_questions WHERE id = ?", (question_id,))
         self.connection.commit()
+
+    def clear_exam_questions_for_project(self, project_id: int) -> None:
+        """Remove all exam questions linked to the given project."""
+        with self.connection:
+            self.connection.execute(
+                "DELETE FROM exam_questions WHERE document_id IN (SELECT id FROM documents WHERE project_id = ?)",
+                (project_id,)
+            )
 
     # ---------- chat ----------
     def get_or_create_chat(self, project_id: int) -> int:

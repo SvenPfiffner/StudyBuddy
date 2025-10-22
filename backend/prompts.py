@@ -3,7 +3,7 @@ from textwrap import dedent
 def get_generate_flashcards_prompt(script_content: str) -> str:
     return dedent(
         f"""\
-        Generate a JSON array of 20-30 flashcards from the study material below.
+        Generate a JSON array of 8-12 flashcards strictly based on the study material below.
 
         CRITICAL OUTPUT REQUIREMENTS:
         - Output ONLY a valid JSON array. Start with [ and end with ]
@@ -17,10 +17,11 @@ def get_generate_flashcards_prompt(script_content: str) -> str:
         - "answer": A specific answer in 1-3 sentences
 
         Quality guidelines:
-        - Cover core definitions, facts, processes, and relationships
-        - Make each card self-contained and memorizable
-        - Avoid repeating information across cards
-        - Prioritize factual precision over creative wording
+        - Use only facts explicitly present in the study material
+        - Mention the same terminology that appears in the material (protocol names, actors, variables, etc.)
+        - It is acceptable to produce fewer than 8 flashcards if the material is limited
+        - If the material does not contain enough information, return an empty JSON array []
+        - DO NOT invent examples or switch topics; submissions referencing unrelated domains will be rejected
 
         <<<STUDY_MATERIAL>>>
         {script_content.strip()}
@@ -32,7 +33,7 @@ def get_generate_flashcards_prompt(script_content: str) -> str:
 def get_generate_exam_prompt(script_content: str) -> str:
     return dedent(
         f"""\
-        Generate a JSON array of 15-20 multiple-choice exam questions based on the study material below.
+        Generate a JSON array of 8-12 multiple-choice exam questions based ONLY on the study material below.
 
         CRITICAL OUTPUT REQUIREMENTS:
         - Output ONLY a valid JSON array. Start with [ and end with ]
@@ -47,10 +48,11 @@ def get_generate_exam_prompt(script_content: str) -> str:
         - "correctAnswer": The exact text of one of the 4 options
 
         Quality guidelines:
-        - Target distinct, high-value concepts from the material
-        - Make all 4 options mutually exclusive and similar in length
-        - Only the correct answer should be fully accurate
-        - Create 3 realistic distractors based on common misconceptions
+        - Every question must cite terminology from the material (e.g. actor names, protocol steps, variables)
+        - Never reference topics that are absent from the material
+        - If there is not enough information for a question, do not create one
+        - If no valid questions can be created, return an empty JSON array []
+        - Distractors should be plausible variations of content actually discussed in the material
 
         <<<STUDY_MATERIAL>>>
         {script_content.strip()}
