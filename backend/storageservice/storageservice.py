@@ -216,6 +216,12 @@ class StorageService:
     def list_users(self) -> List[Row]:
         return self._all("SELECT * FROM users ORDER BY created_at ASC")
 
+    def get_or_create_user(self, name: str) -> int:
+        existing = self.get_user_by_name(name)
+        if existing:
+            return existing["id"]
+        return self.create_user(name)
+
     # ---------- projects ----------
     def create_project(self, user_id: int, name: str, summary: Optional[str] = None) -> int:
         with self.connection:
@@ -289,6 +295,18 @@ class StorageService:
 
         row_ids = [row["id"] for row in rows]
         return row_ids
+
+    def list_documents_with_metadata(self, project_id: int) -> List[Row]:
+        return self._all(
+            "SELECT id, title, created_at, updated_at FROM documents WHERE project_id = ? ORDER BY created_at ASC",
+            (project_id,)
+        )
+
+    def list_documents_with_content(self, project_id: int) -> List[Row]:
+        return self._all(
+            "SELECT id, title, content, created_at, updated_at FROM documents WHERE project_id = ? ORDER BY created_at ASC",
+            (project_id,)
+        )
 
     def delete_document(self, document_id: int) -> None:
         self.connection.execute("DELETE FROM documents WHERE id = ?", (document_id,))
@@ -426,17 +444,12 @@ class StorageService:
                 row["option_c"],
                 row["option_d"],
             ]
-            
-            # Map letter (A, B, C, D) to the actual answer text
-            answer_letter = row["answer_letter"].upper()
-            letter_to_index = {"A": 0, "B": 1, "C": 2, "D": 3}
-            correct_answer_text = options[letter_to_index.get(answer_letter, 0)]
-            
+
             exam_questions.append(
                 ExamQuestion(
                     question=row["question"],
                     options=options,
-                    correctAnswer=correct_answer_text
+                    correctAnswer=row["answer_letter"].upper()
                 )
             )
 

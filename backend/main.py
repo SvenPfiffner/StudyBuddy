@@ -6,6 +6,7 @@ import os
 os.environ.setdefault("VLLM_WORKER_MULTIPROC_METHOD", "spawn")
 
 import logging
+from typing import List
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,21 +14,26 @@ from starlette.concurrency import run_in_threadpool
 
 from .config import get_settings
 from .schemas import (
-    ChatRequest,
-    ChatResponse,
-    ExamResponse,
-    FlashcardResponse,
-    ImageRequest,
-    ImageResponse,
-    ScriptRequest,
-    SummaryResponse,
-    ProjectRequest,
-    GenerateResponse,
-    Project,
     AddDocumentRequest,
     AddDocumentResponse,
+    ChatRequest,
+    ChatResponse,
     CreateProjectRequest,
-    CreateProjectResponse
+    CreateProjectResponse,
+    DeleteResponse,
+    DocumentItem,
+    DocumentListResponse,
+    EnsureUserRequest,
+    EnsureUserResponse,
+    ExamResponse,
+    FlashcardResponse,
+    GenerateResponse,
+    ImageRequest,
+    ImageResponse,
+    ProjectListItem,
+    ProjectListResponse,
+    ProjectRequest,
+    SummaryResponse,
 )
 from .service import StudyBuddyService, get_studybuddy_service
 
@@ -54,6 +60,102 @@ async def healthcheck():
         "textModel": settings.text_model_id,
         "imageModel": settings.image_model_id if settings.enable_image_generation else None,
     }
+
+
+@app.post(
+    "/ensure_user",
+    response_model=EnsureUserResponse,
+    summary="Ensure a user exists and return the user id",
+)
+async def ensure_user(
+    payload: EnsureUserRequest,
+    service: StorageService = Depends(get_database_service),
+):
+    user_id = await run_in_threadpool(service.get_or_create_user, payload.name)
+    return EnsureUserResponse(user_id=user_id)
+
+
+@app.get(
+    "/users/{user_id}/projects",
+    response_model=ProjectListResponse,
+    summary="List all projects for a user",
+)
+async def list_projects(
+    user_id: int,
+    service: StorageService = Depends(get_database_service),
+):
+    rows = await run_in_threadpool(service.list_projects, user_id)
+    projects: List[ProjectListItem] = []
+    for row in rows:
+        document_ids = await run_in_threadpool(service.list_documents, row["id"])
+        projects.append(
+            ProjectListItem(
+                id=row["id"],
+                name=row["name"],
+                summary=row["summary"],
+                document_count=len(document_ids),
+                created_at=row["created_at"],
+                updated_at=row["updated_at"],
+            )
+        )
+
+    return ProjectListResponse(projects=projects)
+
+
+@app.delete(
+    "/projects/{project_id}",
+    response_model=DeleteResponse,
+    summary="Delete a project and its related data",
+)
+async def delete_project(
+    project_id: int,
+    service: StorageService = Depends(get_database_service),
+):
+    await run_in_threadpool(service.delete_project, project_id)
+    return DeleteResponse(status="success", message=f"Project {project_id} deleted")
+
+
+@app.get(
+    "/projects/{project_id}/documents",
+    response_model=DocumentListResponse,
+    summary="List documents for a project",
+)
+async def list_documents(
+    project_id: int,
+    include_content: bool = False,
+    service: StorageService = Depends(get_database_service),
+):
+    if include_content:
+        rows = await run_in_threadpool(service.list_documents_with_content, project_id)
+    else:
+        rows = await run_in_threadpool(service.list_documents_with_metadata, project_id)
+
+    documents: List[DocumentItem] = []
+    for row in rows:
+        documents.append(
+            DocumentItem(
+                id=row["id"],
+                title=row["title"],
+                created_at=row["created_at"],
+                updated_at=row["updated_at"],
+                content=row["content"] if include_content else None,
+            )
+        )
+
+    return DocumentListResponse(documents=documents)
+
+
+@app.delete(
+    "/documents/{document_id}",
+    response_model=DeleteResponse,
+    summary="Delete a document from a project",
+)
+async def delete_document(
+    document_id: int,
+    service: StorageService = Depends(get_database_service),
+):
+    await run_in_threadpool(service.delete_document, document_id)
+    return DeleteResponse(status="success", message=f"Document {document_id} deleted")
 
 @app.post("/generate",
           response_model=GenerateResponse,

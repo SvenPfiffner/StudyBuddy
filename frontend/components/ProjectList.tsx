@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import type { Project } from '../types';
+import type { ProjectSummary } from '../types';
 
 interface ProjectListProps {
-  projects: Project[];
-  onSelectProject: (id: string) => void;
-  onCreateProject: (name: string) => void;
-  onDeleteProject: (id: string) => void;
+  projects: ProjectSummary[];
+  onSelectProject: (id: number) => void;
+  onCreateProject: (name: string) => Promise<void> | void;
+  onDeleteProject: (id: number) => Promise<void> | void;
 }
 
 const TrashIcon = () => (
@@ -56,7 +56,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ projects, onSelectProject, on
             >
               <div>
                 <h3 className="text-xl font-semibold text-white">{project.name}</h3>
-                <span className="text-sm text-gray-400">{project.files.length} file(s)</span>
+                <span className="text-sm text-gray-400">{project.documentCount} file(s)</span>
               </div>
               <button
                 onClick={(e) => {
