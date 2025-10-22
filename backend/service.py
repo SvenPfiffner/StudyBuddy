@@ -91,7 +91,7 @@ class StudyBuddyService:
                 else:  # dict-like
                     data = ExamQuestionList.model_validate(structured)
 
-                return data.questions
+                return validate_exam_questions(data.questions)
             except Exception as exc:
                 logger.warning("Failed to parse structured exam questions: %s", exc)
 

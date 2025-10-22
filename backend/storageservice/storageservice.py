@@ -171,27 +171,45 @@ GROUP BY d.id;
 
 class StorageService:
     def __init__(self, db_path: str):
-        self.connection = sqlite3.connect(db_path)
-        self.connection.execute("PRAGMA foreign_keys = ON;")
-        self.connection.execute("PRAGMA journal_mode = WAL;")
-        self.connection.execute("PRAGMA synchronous = NORMAL;")
-        self.connection.row_factory = sqlite3.Row
-        self.cursor = self.connection.cursor()
-        self._ensure_schema()
+        self.db_path = db_path
+        self._local = threading.local()
+        # Initialize the schema using a temporary connection
+        conn = sqlite3.connect(db_path)
+        conn.execute("PRAGMA foreign_keys = ON;")
+        conn.execute("PRAGMA journal_mode = WAL;")
+        conn.execute("PRAGMA synchronous = NORMAL;")
+        conn.row_factory = sqlite3.Row
+        self._ensure_schema_with_connection(conn)
+        conn.close()
+    
+    @property
+    def connection(self) -> sqlite3.Connection:
+        """Get a thread-local connection to the database."""
+        if not hasattr(self._local, 'connection') or self._local.connection is None:
+            self._local.connection = sqlite3.connect(self.db_path)
+            self._local.connection.execute("PRAGMA foreign_keys = ON;")
+            self._local.connection.execute("PRAGMA journal_mode = WAL;")
+            self._local.connection.execute("PRAGMA synchronous = NORMAL;")
+            self._local.connection.row_factory = sqlite3.Row
+        return self._local.connection
 
     # ---------- internal ----------
-    def _ensure_schema(self) -> None:
-        cur = self.connection.execute("PRAGMA user_version;")
+    def _ensure_schema_with_connection(self, conn: sqlite3.Connection) -> None:
+        """Ensure schema exists using the provided connection."""
+        cur = conn.execute("PRAGMA user_version;")
         version = cur.fetchone()[0]
         if version < 1:
-            self.connection.executescript(DDL)
-            self.connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION};")
-            self.connection.commit()
+            conn.executescript(DDL)
+            conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION};")
+            conn.commit()
         # Future migrations can go here (if version < 2: ...)
 
     def close(self) -> None:
-        self.connection.commit()
-        self.connection.close()
+        """Close the thread-local connection if it exists."""
+        if hasattr(self._local, 'connection') and self._local.connection is not None:
+            self._local.connection.commit()
+            self._local.connection.close()
+            self._local.connection = None
 
     def _one(self, sql: str, params: Sequence[Any] = ()) -> Optional[Row]:
         cur = self.connection.execute(sql, params)
@@ -203,18 +221,60 @@ class StorageService:
 
     # ---------- users ----------
     def create_user(self, name: str) -> int:
-        cur = self.connection.execute(
-            "INSERT INTO users (name) VALUES (?)",
-            (name,)
-        )
-        self.connection.commit()
-        return cur.lastrowid
+        """Create a new user and return the row id."""
+        with self.connection:
+            cur = self.connection.execute(
+                "INSERT INTO users (name) VALUES (?)",
+                (name,)
+            )
+            return cur.lastrowid
 
     def get_user_by_name(self, name: str) -> Optional[Row]:
         return self._one("SELECT * FROM users WHERE name = ?", (name,))
 
     def list_users(self) -> List[Row]:
         return self._all("SELECT * FROM users ORDER BY created_at ASC")
+
+    def get_or_create_user(self, name: str) -> int:
+        """Return the id for ``name`` inserting a new row when needed.
+
+        The implementation leverages SQLite's ``ON CONFLICT`` support so we
+        don't race between checking for an existing user and inserting a new
+        one. When another thread inserts the same user first, SQLite runs the
+        conflict handler and we simply read back the already existing row.
+        """
+        try:
+            with self.connection:
+                cur = self.connection.execute(
+                    """
+                    INSERT INTO users (name)
+                    VALUES (?)
+                    ON CONFLICT(name) DO UPDATE SET updated_at = datetime('now')
+                    RETURNING id
+                    """,
+                    (name,)
+                )
+                row = cur.fetchone()
+                if row is not None:
+                    return row["id"]
+        except sqlite3.OperationalError:
+            # SQLite versions prior to 3.35 do not support RETURNING. Fall back
+            # to an insert-or-ignore approach and fetch the row afterwards.
+            self.connection.rollback()
+            with self.connection:
+                self.connection.execute(
+                    "INSERT OR IGNORE INTO users (name) VALUES (?)",
+                    (name,)
+                )
+        except sqlite3.IntegrityError:
+            # The insert failed but another thread may have created the user.
+            self.connection.rollback()
+
+        existing = self.get_user_by_name(name)
+        if existing:
+            return existing["id"]
+        # If we reach this point something went unexpectedly wrong.
+        raise sqlite3.IntegrityError(f"Unable to ensure user '{name}' exists")
 
     # ---------- projects ----------
     def create_project(self, user_id: int, name: str, summary: Optional[str] = None) -> int:
@@ -289,6 +349,18 @@ class StorageService:
 
         row_ids = [row["id"] for row in rows]
         return row_ids
+
+    def list_documents_with_metadata(self, project_id: int) -> List[Row]:
+        return self._all(
+            "SELECT id, title, created_at, updated_at FROM documents WHERE project_id = ? ORDER BY created_at ASC",
+            (project_id,)
+        )
+
+    def list_documents_with_content(self, project_id: int) -> List[Row]:
+        return self._all(
+            "SELECT id, title, content, created_at, updated_at FROM documents WHERE project_id = ? ORDER BY created_at ASC",
+            (project_id,)
+        )
 
     def delete_document(self, document_id: int) -> None:
         self.connection.execute("DELETE FROM documents WHERE id = ?", (document_id,))
@@ -390,6 +462,14 @@ class StorageService:
         self.connection.execute("DELETE FROM flashcards WHERE id = ?", (flashcard_id,))
         self.connection.commit()
 
+    def clear_flashcards_for_project(self, project_id: int) -> None:
+        """Remove all flashcards linked to the given project."""
+        with self.connection:
+            self.connection.execute(
+                "DELETE FROM flashcards WHERE document_id IN (SELECT id FROM documents WHERE project_id = ?)",
+                (project_id,)
+            )
+
     # ---------- exam questions ----------
     def add_exam_question(
         self,
@@ -426,17 +506,12 @@ class StorageService:
                 row["option_c"],
                 row["option_d"],
             ]
-            
-            # Map letter (A, B, C, D) to the actual answer text
-            answer_letter = row["answer_letter"].upper()
-            letter_to_index = {"A": 0, "B": 1, "C": 2, "D": 3}
-            correct_answer_text = options[letter_to_index.get(answer_letter, 0)]
-            
+
             exam_questions.append(
                 ExamQuestion(
                     question=row["question"],
                     options=options,
-                    correctAnswer=correct_answer_text
+                    correctAnswer=row["answer_letter"].upper()
                 )
             )
 
@@ -445,6 +520,14 @@ class StorageService:
     def delete_exam_question(self, question_id: int) -> None:
         self.connection.execute("DELETE FROM exam_questions WHERE id = ?", (question_id,))
         self.connection.commit()
+
+    def clear_exam_questions_for_project(self, project_id: int) -> None:
+        """Remove all exam questions linked to the given project."""
+        with self.connection:
+            self.connection.execute(
+                "DELETE FROM exam_questions WHERE document_id IN (SELECT id FROM documents WHERE project_id = ?)",
+                (project_id,)
+            )
 
     # ---------- chat ----------
     def get_or_create_chat(self, project_id: int) -> int:

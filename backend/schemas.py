@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import List
+from datetime import datetime
+from typing import List, Optional
 
 from pydantic import BaseModel, Field, RootModel
 
@@ -93,3 +94,41 @@ class CreateProjectRequest(BaseModel):
 class CreateProjectResponse(BaseModel):
     project_id: int = Field(..., description="ID of the created project")
     message: str = Field(..., description="Success message")
+
+
+class EnsureUserRequest(BaseModel):
+    name: str = Field(..., description="Username to ensure exists")
+
+
+class EnsureUserResponse(BaseModel):
+    user_id: int = Field(..., description="ID of the ensured user")
+
+
+class ProjectListItem(BaseModel):
+    id: int
+    name: str
+    summary: Optional[str]
+    document_count: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProjectListResponse(BaseModel):
+    projects: List[ProjectListItem]
+
+
+class DocumentItem(BaseModel):
+    id: int
+    title: str
+    created_at: datetime
+    updated_at: datetime
+    content: Optional[str] = None
+
+
+class DocumentListResponse(BaseModel):
+    documents: List[DocumentItem]
+
+
+class DeleteResponse(BaseModel):
+    status: str
+    message: str
