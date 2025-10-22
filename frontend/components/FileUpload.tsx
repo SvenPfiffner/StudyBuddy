@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 
 interface FileUploadProps {
-  onFileUpload: (content: string, fileName: string) => void;
+  onFileUpload: (fileName: string, content: string) => Promise<void> | void;
   isLoading: boolean;
 }
 
@@ -26,7 +26,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, isLoading }) => {
         const reader = new FileReader();
         reader.onload = (e) => {
             const content = e.target?.result as string;
-            onFileUpload(content, file.name);
+            Promise.resolve(onFileUpload(file.name, content));
         };
         reader.readAsText(file);
     } else if (file.type === 'application/pdf') {
@@ -48,8 +48,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, isLoading }) => {
                     pagesTextContent.forEach((textContent: any) => {
                         fullText += textContent.items.map((item: any) => item.str).join(' ') + '\n';
                     });
-                    
-                    onFileUpload(fullText.trim(), file.name);
+
+                    await Promise.resolve(onFileUpload(file.name, fullText.trim()));
 
                 } catch (error) {
                     console.error("Error parsing PDF:", error);

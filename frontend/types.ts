@@ -16,17 +16,28 @@ export interface ChatMessage {
 
 export type StudyMode = 'flashcards' | 'exam' | 'summary' | 'chat';
 
-export interface ProjectFile {
-    name: string;
-    content: string;
+export interface DocumentMetadata {
+  id: number;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface Project {
-    id: string;
-    name: string;
-    files: ProjectFile[];
-    flashcards?: Flashcard[];
-    examQuestions?: ExamQuestion[];
-    summary?: string;
-    history?: ChatMessage[];
+export interface DocumentWithContent extends DocumentMetadata {
+  content: string;
+}
+
+export interface ProjectSummary {
+  id: number;
+  name: string;
+  summary?: string | null;
+  documentCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StudyMaterials {
+  flashcards: Flashcard[];
+  examQuestions: ExamQuestion[];
+  summary: string;
 }

@@ -40,3 +40,17 @@ class TextGenerationClient(ABC):
 
         Should raise RuntimeError if structured output is not supported.
         """
+
+    @abstractmethod
+    def generate_conversational(
+        self,
+        context: str,
+        conversation_messages: list[dict],  # [{"role":"user"/"assistant","content":"..."}]
+        user_message: str,
+        max_new_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> Any:
+        """Generate a conversational response given the context and message.
+
+        Should raise RuntimeError if conversational generation is not supported.
+        """

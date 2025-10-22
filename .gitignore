@@ -40,3 +40,6 @@ __pycache__/
 
 # Environment variables file
 .env
+
+# Database files
+*.db
