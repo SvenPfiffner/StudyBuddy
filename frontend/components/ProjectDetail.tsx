@@ -88,7 +88,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({
                     <Spinner />
                     <span className="ml-3">{generationMessage || 'Generating...'}</span>
                 </>
-              ) : (hasMaterials ? 'Regenerate Materials' : 'Generate Study Materials')}
+              ) : (hasStudyMaterials ? 'Regenerate Materials' : 'Generate Study Materials')}
           </button>
         </div>
       </div>

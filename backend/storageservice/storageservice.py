@@ -221,12 +221,13 @@ class StorageService:
 
     # ---------- users ----------
     def create_user(self, name: str) -> int:
-        cur = self.connection.execute(
-            "INSERT INTO users (name) VALUES (?)",
-            (name,)
-        )
-        self.connection.commit()
-        return cur.lastrowid
+        """Create a new user and return the row id."""
+        with self.connection:
+            cur = self.connection.execute(
+                "INSERT INTO users (name) VALUES (?)",
+                (name,)
+            )
+            return cur.lastrowid
 
     def get_user_by_name(self, name: str) -> Optional[Row]:
         return self._one("SELECT * FROM users WHERE name = ?", (name,))
@@ -235,10 +236,45 @@ class StorageService:
         return self._all("SELECT * FROM users ORDER BY created_at ASC")
 
     def get_or_create_user(self, name: str) -> int:
+        """Return the id for ``name`` inserting a new row when needed.
+
+        The implementation leverages SQLite's ``ON CONFLICT`` support so we
+        don't race between checking for an existing user and inserting a new
+        one. When another thread inserts the same user first, SQLite runs the
+        conflict handler and we simply read back the already existing row.
+        """
+        try:
+            with self.connection:
+                cur = self.connection.execute(
+                    """
+                    INSERT INTO users (name)
+                    VALUES (?)
+                    ON CONFLICT(name) DO UPDATE SET updated_at = datetime('now')
+                    RETURNING id
+                    """,
+                    (name,)
+                )
+                row = cur.fetchone()
+                if row is not None:
+                    return row["id"]
+        except sqlite3.OperationalError:
+            # SQLite versions prior to 3.35 do not support RETURNING. Fall back
+            # to an insert-or-ignore approach and fetch the row afterwards.
+            self.connection.rollback()
+            with self.connection:
+                self.connection.execute(
+                    "INSERT OR IGNORE INTO users (name) VALUES (?)",
+                    (name,)
+                )
+        except sqlite3.IntegrityError:
+            # The insert failed but another thread may have created the user.
+            self.connection.rollback()
+
         existing = self.get_user_by_name(name)
         if existing:
             return existing["id"]
-        return self.create_user(name)
+        # If we reach this point something went unexpectedly wrong.
+        raise sqlite3.IntegrityError(f"Unable to ensure user '{name}' exists")
 
     # ---------- projects ----------
     def create_project(self, user_id: int, name: str, summary: Optional[str] = None) -> int:

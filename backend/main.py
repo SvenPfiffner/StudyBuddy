@@ -264,8 +264,13 @@ async def summary_with_images(
     service: StorageService = Depends(get_database_service),
 ):
     project_overview = await run_in_threadpool(service.get_project_overview, payload.project_id)
+    if project_overview is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {payload.project_id} not found",
+        )
 
-    return SummaryResponse(summary=project_overview.summary)
+    return SummaryResponse(summary=project_overview.summary or "")
 
 
 
