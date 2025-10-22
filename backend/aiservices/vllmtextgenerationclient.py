@@ -62,3 +62,48 @@ class VLLMTextGenerationClient(TextGenerationClient):
         out = self._llm.generate([msg], sp)[0].outputs[0].text
         # vLLM enforces the schema during decoding; still validate defensively:
         return response_model.model_validate_json(out)
+    
+    def generate_conversational(
+        self,
+        context: str,
+        conversation_messages: list[dict],  # [{"role":"user"/"assistant","content":"..."}]
+        user_message: str,
+        max_new_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> GenerationResult:
+        # Put policy + authoritative context into SYSTEM so it outranks user text.
+        system = (
+            "You are StudyBuddy — a playful, warm, witty study coach for novices. "
+            "Talk directly to the user in 1–4 sentences, friendly and concise. "
+            "State facts only if they are in the context below; otherwise say you’re not sure. "
+            "Small talk is fine; gently steer back to studying. English only. No quizzes or lists.\n\n"
+            f"Context (authoritative facts):\n{context or ''}"
+        )
+
+        messages = [{"role": "system", "content": system}]
+        # include the last few turns if you have them
+        for m in (conversation_messages or []):
+            # ensure only "user" / "assistant" roles go here
+            if m.get("role") in {"user", "assistant"} and "content" in m:
+                messages.append({"role": m["role"], "content": m["content"]})
+        messages.append({"role": "user", "content": user_message})
+
+        # Use the model’s native chat template
+        prompt = self._tok.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,  # appends assistant header; model will end with <|eot_id|>
+        )
+
+        sp = SamplingParams(
+            temperature=0.25 if temperature is None else temperature,  # calmer
+            max_tokens=120 if max_new_tokens is None else max_new_tokens,
+            top_p=0.9,
+            repetition_penalty=1.08,
+            stop_token_ids=[self._eot_id],  # stop at end-of-turn
+        )
+
+        out = self._llm.generate([prompt], sp)[0].outputs[0].text
+        # vLLM returns only the completion after the assistant header, but be safe:
+        cleaned = out.split("<|eot_id|>")[0].strip()
+        return GenerationResult(text=cleaned)
