@@ -471,7 +471,7 @@ async def chat(
 
     try:
         reply = await run_in_threadpool(
-            studybuddy_service.continue_chat,
+            studybuddy_service.continue_chat_conversational,
             history_messages,
             context,
             message,

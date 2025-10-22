@@ -170,6 +170,37 @@ class StudyBuddyService:
         response = self._strip_hallucinated_turns(response)
         return response.strip()
 
+    def continue_chat_conversational(self, history: List[ChatMessage], context: str, message: str) -> str:
+        """
+        Use vLLM's conversational API for more robust multi-turn conversations.
+        
+        Args:
+            history: List of ChatMessage objects with role and parts
+            context: Document content to use as context
+            message: The new user message
+            
+        Returns:
+            The assistant's response text
+        """
+        # Convert ChatMessage format to dict format expected by generate_conversational
+        conversation_messages = []
+        for chat_msg in history:
+            # Extract text from parts
+            content = " ".join(part.text for part in chat_msg.parts)
+            # Map "model" role back to "assistant" for the conversational API
+            role = "assistant" if chat_msg.role == "model" else chat_msg.role
+            if role in {"user", "assistant"}:
+                conversation_messages.append({"role": role, "content": content})
+        
+        result = self._text_client.generate_conversational(
+            context=context,
+            conversation_messages=conversation_messages,
+            user_message=message,
+            max_new_tokens=512,
+            temperature=0.25,
+        )
+        return result.text
+
 
 
     # ------------------------------------------------------------------
