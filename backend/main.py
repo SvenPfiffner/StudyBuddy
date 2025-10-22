@@ -82,25 +82,90 @@ def _resolve_answer_letter(correct_answer: str, options: Sequence[str]) -> str:
     raise ValueError(f"could not map answer '{correct_answer}' to one of the options")
 
 
-_ROLE_DB_TO_API = {"user": "user", "assistant": "model", "system": "system"}
+MAX_CHAT_HISTORY_MESSAGES = 20
+MAX_CHAT_HISTORY_CHARS = 5000
+MAX_DOCUMENT_CONTEXT_CHARS = 12000
+_TRUNCATION_SUFFIX = "\n[... truncated for length ...]"
+_HISTORY_PREFIX = "[...] "
+
+
+_ROLE_DB_TO_API = {"user": "user", "assistant": "model", "system": "model"}
+
+
+def _truncate_text(text: str, limit: int) -> tuple[str, bool]:
+    if limit <= 0:
+        return "", True
+    if len(text) <= limit:
+        return text, False
+    suffix = _TRUNCATION_SUFFIX
+    if limit <= len(suffix):
+        return suffix.strip(), True
+    return text[: limit - len(suffix)] + suffix, True
 
 
 def _row_to_chat_message(row: Any) -> ChatMessage:
-    role = _ROLE_DB_TO_API.get(row["role"], row["role"])
+    role = _ROLE_DB_TO_API.get(row["role"], "model")
     return ChatMessage(role=role, parts=[ChatPart(text=row["content"])])
+
+
+def _compress_chat_history(history: Sequence[ChatMessage]) -> List[ChatMessage]:
+    if not history:
+        return []
+
+    limited_history = list(history)[-MAX_CHAT_HISTORY_MESSAGES:]
+    selected: List[ChatMessage] = []
+    used_chars = 0
+
+    for message in reversed(limited_history):  # prioritise the most recent entries
+        message_text = " ".join(part.text for part in message.parts).strip()
+        if not message_text:
+            selected.append(message)
+            continue
+
+        available = MAX_CHAT_HISTORY_CHARS - used_chars
+        if available <= 0:
+            break
+
+        if len(message_text) > available:
+            truncated_text, _ = _truncate_text(message_text[-available:], available)
+            truncated_text = (_HISTORY_PREFIX + truncated_text) if len(truncated_text) < len(message_text) else truncated_text
+            selected.append(ChatMessage(role=message.role, parts=[ChatPart(text=truncated_text)]))
+            used_chars = MAX_CHAT_HISTORY_CHARS
+            break
+
+        selected.append(message)
+        used_chars += len(message_text)
+
+    selected.reverse()
+    if len(selected) < len(history):
+        logger.debug("Chat history truncated to %s messages and %s chars", len(selected), used_chars)
+    return selected
 
 
 def _build_system_instruction(project_name: str, documents: Sequence[Any]) -> str:
     rendered_sections: List[str] = []
+    remaining = MAX_DOCUMENT_CONTEXT_CHARS
     for doc in documents:
         content = doc["content"]
         if not content:
             continue
-        rendered_sections.append(
-            f"--- Start of file: {doc['title']} ---\n{content}\n--- End of file: {doc['title']} ---"
-        )
+        header = f"--- Start of file: {doc['title']} ---\n"
+        footer = "\n--- End of file: {doc['title']} ---"
+        overhead = len(header) + len(footer)
+        if remaining <= overhead:
+            break
 
-    rendered_documents = "\n\n".join(rendered_sections)
+        available_for_content = remaining - overhead
+        snippet, truncated = _truncate_text(content.strip(), available_for_content)
+        section = header + snippet + footer
+        rendered_sections.append(section)
+        remaining -= len(section) + 2  # account for the separator newlines
+        if truncated and remaining <= 0:
+            break
+
+    rendered_documents = "\n\n".join(rendered_sections).strip()
+    if not rendered_documents:
+        rendered_documents = "[No document content available]"
 
     return dedent(
         f"""
@@ -408,7 +473,7 @@ async def chat(
         )
 
     history_rows = await run_in_threadpool(storage_service.list_chat_messages, project_id)
-    history_messages = [_row_to_chat_message(row) for row in history_rows]
+    history_messages = _compress_chat_history([_row_to_chat_message(row) for row in history_rows])
     system_instruction = _build_system_instruction(project_overview.name, documents)
 
     try:

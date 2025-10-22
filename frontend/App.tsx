@@ -154,6 +154,10 @@ const App: React.FC = () => {
           setDocumentList([]);
           setMaterials(null);
         }
+        setChatHistories((prev) => {
+          const { [idToDelete]: _removed, ...rest } = prev;
+          return rest;
+        });
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Failed to delete the project.';
         setError(message);
