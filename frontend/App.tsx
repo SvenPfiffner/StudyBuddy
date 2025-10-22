@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import ProjectList from './components/ProjectList';
 import ProjectDetail from './components/ProjectDetail';
 import FlashcardViewer from './components/FlashcardViewer';
@@ -51,6 +51,7 @@ const App: React.FC = () => {
   const [materials, setMaterials] = useState<StudyMaterials | null>(null);
   const [chatHistories, setChatHistories] = useState<Record<number, ChatMessage[]>>({});
   const [isChatResponding, setIsChatResponding] = useState(false);
+  const hasInitialised = useRef(false);
 
   const refreshProjects = useCallback(async (uid: number) => {
     const projectList = await fetchProjects(uid);
@@ -58,6 +59,11 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (hasInitialised.current) {
+      return;
+    }
+    hasInitialised.current = true;
+
     const initializeApp = async () => {
       try {
         const ensuredUserId = await ensureUser(DEFAULT_USER_NAME);

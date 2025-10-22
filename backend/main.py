@@ -6,7 +6,8 @@ import os
 os.environ.setdefault("VLLM_WORKER_MULTIPROC_METHOD", "spawn")
 
 import logging
-from typing import List
+import re
+from typing import List, Sequence
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,6 +41,41 @@ from .service import StudyBuddyService, get_studybuddy_service
 from .storageservice.storageservice import StorageService, get_database_service
 
 logger = logging.getLogger(__name__)
+
+
+def _normalise_option_text(text: str) -> str:
+    cleaned = re.sub(r"^[a-d][).:\-\s]+", "", text.strip(), flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip().lower()
+    return cleaned.rstrip('.')
+
+
+def _resolve_answer_letter(correct_answer: str, options: Sequence[str]) -> str:
+    letters = ("A", "B", "C", "D")
+    if len(options) < len(letters):
+        raise ValueError("expected four answer options")
+
+    answer = correct_answer.strip()
+    if not answer:
+        raise ValueError("empty correct answer")
+
+    upper_answer = answer.upper()
+    if upper_answer in letters:
+        return upper_answer
+
+    letter_match = re.match(r"^([A-D])\b", upper_answer)
+    if letter_match:
+        return letter_match.group(1)
+
+    normalised_answer = _normalise_option_text(answer)
+    for idx, option in enumerate(options[:4]):
+        if _normalise_option_text(option) == normalised_answer:
+            return letters[idx]
+
+    for idx, option in enumerate(options[:4]):
+        if normalised_answer and normalised_answer in _normalise_option_text(option):
+            return letters[idx]
+
+    raise ValueError(f"could not map answer '{correct_answer}' to one of the options")
 
 app = FastAPI(title="StudyBuddy Backend", version="1.0.0")
 
@@ -195,18 +231,28 @@ async def generate_content(
         # Generate exam questions for this document
         exam_questions = await run_in_threadpool(studybuddy_service.generate_practice_exam, doc_content)
         for question in exam_questions:
-            # Ensure we have exactly 4 options
-            if len(question.options) >= 4:
-                await run_in_threadpool(
-                    storage_service.add_exam_question,
-                    doc_id,
-                    question.question,
-                    question.options[0],
-                    question.options[1],
-                    question.options[2],
-                    question.options[3],
-                    question.correctAnswer
+            if len(question.options) < 4:
+                logger.warning(
+                    "Skipping exam question with insufficient options for document %s", doc_id
                 )
+                continue
+
+            try:
+                answer_letter = _resolve_answer_letter(question.correctAnswer, question.options)
+            except ValueError as exc:
+                logger.warning("Skipping exam question for document %s: %s", doc_id, exc)
+                continue
+
+            await run_in_threadpool(
+                storage_service.add_exam_question,
+                doc_id,
+                question.question,
+                question.options[0],
+                question.options[1],
+                question.options[2],
+                question.options[3],
+                answer_letter,
+            )
     
     # Generate summary with images from all documents combined
     all_content = []
