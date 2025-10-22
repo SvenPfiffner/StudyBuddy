@@ -166,16 +166,7 @@ from backend.storageservice.storageservice import StorageService, get_database_s
 
 
 def _create_threadsafe_storage_service(db_path: str) -> StorageService:
-    service = StorageService.__new__(StorageService)
-    connection = sqlite3.connect(db_path, check_same_thread=False)
-    connection.execute("PRAGMA foreign_keys = ON;")
-    connection.execute("PRAGMA journal_mode = WAL;")
-    connection.execute("PRAGMA synchronous = NORMAL;")
-    connection.row_factory = sqlite3.Row
-    service.connection = connection
-    service.cursor = connection.cursor()
-    service._ensure_schema()
-    return service
+    return StorageService(db_path)
 
 
 class StubService:
@@ -397,46 +388,73 @@ def test_summary_with_images_requires_project_id(client: TestClient) -> None:
     assert any(err["loc"][-1] == "project_id" for err in response.json()["detail"])
 
 
-def test_chat_returns_stubbed_message(client: TestClient) -> None:
-    stub = get_stub(client)
-    payload = {
-        "history": [
-            {"role": "user", "parts": [{"text": "Hi"}]},
-            {"role": "model", "parts": [{"text": "Hello"}]},
-        ],
-        "systemInstruction": "Be brief",
-        "message": "Summarise the lesson",
-    }
+def test_chat_history_endpoint_returns_stored_messages(client: TestClient) -> None:
+    service = get_storage(client)
+    project_info = _seed_project_with_content(service)
+    service.add_chat_message(project_info["project_id"], "user", "Hello")
+    service.add_chat_message(project_info["project_id"], "assistant", "Hi there!")
 
-    response = client.post("/chat", json=payload)
+    response = client.get(f"/projects/{project_info['project_id']}/chat")
 
     assert response.status_code == 200
-    assert response.json() == {"message": stub.chat_response}
-    history, system_instruction, message = stub.calls["continue_chat"]
-    assert system_instruction == payload["systemInstruction"]
-    assert message == payload["message"]
-    assert [item.model_dump() for item in history] == payload["history"]
-
-
-def test_chat_requires_full_payload(client: TestClient) -> None:
-    response = client.post("/chat", json={})
-
-    assert response.status_code == 422
-    missing_fields = {err["loc"][-1] for err in response.json()["detail"]}
-    assert {"history", "systemInstruction", "message"} <= missing_fields
-
-
-def test_chat_http_exception_surfaces_unchanged(client: TestClient) -> None:
-    stub = get_stub(client)
-    stub.exceptions["continue_chat"] = HTTPException(status_code=418, detail="Nope")
-
-    payload = {
-        "history": [],
-        "systemInstruction": "irrelevant",
-        "message": "trigger failure",
+    assert response.json() == {
+        "messages": [
+            {"role": "user", "parts": [{"text": "Hello"}]},
+            {"role": "model", "parts": [{"text": "Hi there!"}]},
+        ]
     }
 
-    response = client.post("/chat", json=payload)
+
+def test_chat_append_generates_and_persists_reply(client: TestClient) -> None:
+    stub = get_stub(client)
+    service = get_storage(client)
+    project_info = _seed_project_with_content(service)
+    project_id = project_info["project_id"]
+    service.add_chat_message(project_id, "user", "Previous question")
+    service.add_chat_message(project_id, "assistant", "Previous answer")
+
+    payload = {"message": "What is the next step?"}
+    response = client.post(f"/projects/{project_id}/chat", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["messages"][-2]["parts"][0]["text"] == payload["message"]
+    assert body["messages"][-1]["parts"][0]["text"] == stub.chat_response
+
+    history, system_instruction, message = stub.calls["continue_chat"]
+    assert message == payload["message"]
+    assert len(history) == 2
+    assert history[0].parts[0].text == "Previous question"
+    assert history[1].parts[0].text == "Previous answer"
+    assert "Introduction" in system_instruction
+
+    stored_rows = service.list_chat_messages(project_id)
+    assert [row["role"] for row in stored_rows][-2:] == ["user", "assistant"]
+
+
+def test_chat_append_requires_non_empty_message(client: TestClient) -> None:
+    service = get_storage(client)
+    project_info = _seed_project_with_content(service)
+
+    response = client.post(
+        f"/projects/{project_info['project_id']}/chat",
+        json={"message": "   "},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Message must not be empty"
+
+
+def test_chat_append_propagates_http_errors(client: TestClient) -> None:
+    stub = get_stub(client)
+    stub.exceptions["continue_chat"] = HTTPException(status_code=418, detail="Nope")
+    service = get_storage(client)
+    project_info = _seed_project_with_content(service)
+
+    response = client.post(
+        f"/projects/{project_info['project_id']}/chat",
+        json={"message": "trigger failure"},
+    )
 
     assert response.status_code == 418
     assert response.json() == {"detail": "Nope"}

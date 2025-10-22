@@ -7,7 +7,8 @@ os.environ.setdefault("VLLM_WORKER_MULTIPROC_METHOD", "spawn")
 
 import logging
 import re
-from typing import List, Sequence
+from textwrap import dedent
+from typing import Any, List, Sequence
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +18,9 @@ from .config import get_settings
 from .schemas import (
     AddDocumentRequest,
     AddDocumentResponse,
+    ChatHistoryResponse,
+    ChatMessage,
+    ChatPart,
     ChatRequest,
     ChatResponse,
     CreateProjectRequest,
@@ -76,6 +80,40 @@ def _resolve_answer_letter(correct_answer: str, options: Sequence[str]) -> str:
             return letters[idx]
 
     raise ValueError(f"could not map answer '{correct_answer}' to one of the options")
+
+
+_ROLE_DB_TO_API = {"user": "user", "assistant": "model", "system": "system"}
+
+
+def _row_to_chat_message(row: Any) -> ChatMessage:
+    role = _ROLE_DB_TO_API.get(row["role"], row["role"])
+    return ChatMessage(role=role, parts=[ChatPart(text=row["content"])])
+
+
+def _build_system_instruction(project_name: str, documents: Sequence[Any]) -> str:
+    rendered_sections: List[str] = []
+    for doc in documents:
+        content = doc["content"]
+        if not content:
+            continue
+        rendered_sections.append(
+            f"--- Start of file: {doc['title']} ---\n{content}\n--- End of file: {doc['title']} ---"
+        )
+
+    rendered_documents = "\n\n".join(rendered_sections)
+
+    return dedent(
+        f"""
+        You are a helpful tutor assisting the user with their project "{project_name}".
+        Answer questions using ONLY the provided project files. If the answer is not present,
+        reply with `I don't have enough information from the provided documents.`
+        ---
+        CONTENT START
+        {rendered_documents}
+        CONTENT END
+        ---
+        """
+    ).strip()
 
 app = FastAPI(title="StudyBuddy Backend", version="1.0.0")
 
@@ -323,20 +361,78 @@ async def summary_with_images(
 
 
 
-@app.post("/chat",
-          response_model=ChatResponse,
-          summary="Continue a chat conversation")
-async def chat(
-    payload: ChatRequest,
-    service: StudyBuddyService = Depends(get_studybuddy_service),
+@app.get(
+    "/projects/{project_id}/chat",
+    response_model=ChatHistoryResponse,
+    summary="Retrieve the saved chat history for a project",
+)
+async def chat_history(
+    project_id: int,
+    service: StorageService = Depends(get_database_service),
 ):
+    rows = await run_in_threadpool(service.list_chat_messages, project_id)
+    messages = [_row_to_chat_message(row) for row in rows]
+    return ChatHistoryResponse(messages=messages)
+
+
+@app.post(
+    "/projects/{project_id}/chat",
+    response_model=ChatResponse,
+    summary="Append a chat message and generate the assistant reply",
+)
+async def chat(
+    project_id: int,
+    payload: ChatRequest,
+    studybuddy_service: StudyBuddyService = Depends(get_studybuddy_service),
+    storage_service: StorageService = Depends(get_database_service),
+):
+    message = payload.message.strip()
+    if not message:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Message must not be empty",
+        )
+
+    project_overview = await run_in_threadpool(storage_service.get_project_overview, project_id)
+    if project_overview is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found",
+        )
+
+    documents = await run_in_threadpool(storage_service.list_documents_with_content, project_id)
+    if not documents:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No documents found for project {project_id}",
+        )
+
+    history_rows = await run_in_threadpool(storage_service.list_chat_messages, project_id)
+    history_messages = [_row_to_chat_message(row) for row in history_rows]
+    system_instruction = _build_system_instruction(project_overview.name, documents)
+
     try:
         reply = await run_in_threadpool(
-            service.continue_chat, payload.history, payload.systemInstruction, payload.message
+            studybuddy_service.continue_chat,
+            history_messages,
+            system_instruction,
+            message,
         )
     except HTTPException:
         raise
-    return ChatResponse(message=reply)
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        logger.exception("Chat generation failed for project %s", project_id)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Chat generation failed. Please try again.",
+        ) from exc
+
+    await run_in_threadpool(storage_service.add_chat_message, project_id, "user", message)
+    await run_in_threadpool(storage_service.add_chat_message, project_id, "assistant", reply)
+
+    updated_rows = await run_in_threadpool(storage_service.list_chat_messages, project_id)
+    messages = [_row_to_chat_message(row) for row in updated_rows]
+    return ChatResponse(messages=messages)
 
 
 @app.post("/add_document",

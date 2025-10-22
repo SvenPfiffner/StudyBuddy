@@ -16,7 +16,8 @@ import {
   removeDocument,
   triggerGeneration,
   fetchStudyMaterials,
-  continueChat,
+  fetchChatHistory,
+  sendChatMessage,
 } from './services/api';
 import type {
   ProjectSummary,
@@ -117,10 +118,14 @@ const App: React.FC = () => {
         storedMaterials.examQuestions.length > 0 ||
         storedMaterials.summary.trim().length > 0;
       setMaterials(containsContent ? storedMaterials : null);
+
+      const history = await fetchChatHistory(projectId);
+      setChatHistories((prev) => ({ ...prev, [projectId]: history }));
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to load project data.';
       setError(message);
       setMaterials(null);
+      setChatHistories((prev) => ({ ...prev, [projectId]: prev[projectId] ?? [] }));
     } finally {
       setIsProjectLoading(false);
     }
@@ -245,28 +250,19 @@ const App: React.FC = () => {
 
   const handleSendMessage = useCallback(async (message: string) => {
     if (!currentProjectId) return;
+    const trimmed = message.trim();
+    if (!trimmed) return;
 
     const history = chatHistories[currentProjectId] ?? [];
-    const userMessage: ChatMessage = { role: 'user', parts: [{ text: message }] };
-    const updatedHistory = [...history, userMessage];
+    const userMessage: ChatMessage = { role: 'user', parts: [{ text: trimmed }] };
+    const optimisticHistory = [...history, userMessage];
 
-    setChatHistories((prev) => ({ ...prev, [currentProjectId]: updatedHistory }));
+    setChatHistories((prev) => ({ ...prev, [currentProjectId]: optimisticHistory }));
     setIsChatResponding(true);
 
     try {
-      const systemInstruction = `You are a helpful tutor. The user has provided the following study material, split into one or more files. Answer their questions based ONLY on this content. If the answer cannot be found in the content, say that you don't have enough information from the provided documents.
-        ---
-        CONTENT START
-        ${documentList
-          .map((doc) => `--- Start of file: ${doc.title} ---\n${doc.content}\n--- End of file: ${doc.title} ---`)
-          .join('\n\n')}
-        CONTENT END
-        ---`;
-
-      const aiResponseText = await continueChat(history, systemInstruction, message);
-      const aiMessage: ChatMessage = { role: 'model', parts: [{ text: aiResponseText }] };
-      const finalHistory = [...updatedHistory, aiMessage];
-      setChatHistories((prev) => ({ ...prev, [currentProjectId]: finalHistory }));
+      const updatedMessages = await sendChatMessage(currentProjectId, trimmed);
+      setChatHistories((prev) => ({ ...prev, [currentProjectId]: updatedMessages }));
     } catch (err) {
       const messageText = err instanceof Error ? err.message : 'An error occurred while chatting.';
       setError(messageText);
@@ -274,7 +270,7 @@ const App: React.FC = () => {
     } finally {
       setIsChatResponding(false);
     }
-  }, [currentProjectId, chatHistories, documentList]);
+  }, [currentProjectId, chatHistories]);
 
   const projectDocuments = documentList.map(({ content, ...meta }) => meta);
   const currentHistory = currentProjectId !== null ? chatHistories[currentProjectId] ?? [] : [];

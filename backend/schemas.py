@@ -55,14 +55,16 @@ class ChatMessage(BaseModel):
     parts: List[ChatPart]
 
 
+class ChatHistoryResponse(BaseModel):
+    messages: List[ChatMessage]
+
+
 class ChatRequest(BaseModel):
-    history: List[ChatMessage]
-    systemInstruction: str
-    message: str
+    message: str = Field(..., description="Latest user message to append to the chat thread")
 
 
 class ChatResponse(BaseModel):
-    message: str
+    messages: List[ChatMessage]
 
 
 class ImageRequest(BaseModel):

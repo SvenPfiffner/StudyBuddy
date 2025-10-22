@@ -150,22 +150,20 @@ export const fetchStudyMaterials = async (projectId: number): Promise<StudyMater
   return { flashcards, examQuestions, summary };
 };
 
-export const continueChat = async (
-  history: ChatMessage[],
-  systemInstruction: string,
-  newMessage: string,
-): Promise<string> => {
-  const response = await fetch(`${API_BASE_URL}/chat`, {
+export const fetchChatHistory = async (projectId: number): Promise<ChatMessage[]> => {
+  const response = await fetch(`${API_BASE_URL}/projects/${projectId}/chat`);
+  const data = await handleResponse<{ messages: ChatMessage[] }>(response);
+  return data.messages;
+};
+
+export const sendChatMessage = async (projectId: number, message: string): Promise<ChatMessage[]> => {
+  const response = await fetch(`${API_BASE_URL}/projects/${projectId}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      history,
-      systemInstruction,
-      message: newMessage,
-    }),
+    body: JSON.stringify({ message }),
   });
-  const data = await handleResponse<{ message: string }>(response);
-  return data.message;
+  const data = await handleResponse<{ messages: ChatMessage[] }>(response);
+  return data.messages;
 };
 
 export { API_BASE_URL };
