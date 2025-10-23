@@ -38,6 +38,8 @@
 
 ## Quick Start
 
+> Tip: Prefer the `./install.sh` helper if you want a guided setup that installs backend/frontend dependencies and runs hardware checks—use the manual steps below only when you need finer control.
+
 ### 🚀 Backend Setup
 
 The backend runs locally using PyTorch and Hugging Face models. The application was developed and tested with an RTX 4090 with 24GB VRAM. Choose AI models based on your VRAM availability (see section: ⚙️ Configuration Options)
@@ -168,4 +170,3 @@ For commercial use, please ensure compliance with the licenses of the underlying
 - Qwen Models: Apache 2.0
 
 This project itself is provided as-is for educational and personal use. 🎓
-
