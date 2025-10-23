@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     # External API settings
     #----------------------------------------------------------
     use_external_text_api: bool = Field(
-        default=True,
+        default=False,
         description="If true, use an external API for text generation instead of local models.",
     )
 
