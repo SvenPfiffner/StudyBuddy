@@ -10,13 +10,18 @@ class Settings(BaseSettings):
     # External API settings
     #----------------------------------------------------------
     use_external_text_api: bool = Field(
-        default=False,
+        default=True,
         description="If true, use an external API for text generation instead of local models.",
     )
 
     external_text_api_id: str = Field(
-        default="your-external-api-id",
+        default="gemini-2.5-flash",
         description="Identifier for the external text generation API.",
+    )
+
+    external_text_api_base_url: str = Field(
+        default="https://generativelanguage.googleapis.com/v1beta/openai/",
+        description="Base URL for the external text generation API.",
     )
 
     external_text_api_key: SecretStr = Field(

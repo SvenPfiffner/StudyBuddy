@@ -24,6 +24,7 @@ from .prompts import (
 )
 from .aiservices.localimagegenerationclient import LocalImageGenerationClient
 from .aiservices.vllmtextgenerationclient import GenerationResult, VLLMTextGenerationClient
+from .aiservices.openaitextgenerationclient import OpenAITextGenerationClient
 from .schemas import (
     ChatMessage,
     ExamQuestion,
@@ -40,7 +41,10 @@ class StudyBuddyService:
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
-        self._text_client = VLLMTextGenerationClient(self.settings)
+        if settings.use_external_text_api:
+            self._text_client = OpenAITextGenerationClient(self.settings)
+        else:
+            self._text_client = VLLMTextGenerationClient(self.settings)
         self._image_client = LocalImageGenerationClient(self.settings)
 
     # ------------------------------------------------------------------
@@ -51,7 +55,7 @@ class StudyBuddyService:
         structured = self._maybe_generate_structured(
             prompt,
             FlashcardList,
-            max_new_tokens=1024,
+            max_new_tokens=20192,  # Increased for large structured JSON responses
             temperature=0.0,
         )
         # If structured came back as a model, dict, or JSON string — normalize it.
@@ -78,7 +82,7 @@ class StudyBuddyService:
         structured = self._maybe_generate_structured(
             prompt,
             ExamQuestionList,
-            max_new_tokens=2048,
+            max_new_tokens=20192,  # Increased for large structured JSON responses
             temperature=0.0,
         )
         # If structured came back as a model, dict, or JSON string — normalize it.
